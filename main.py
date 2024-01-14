@@ -1,3 +1,6 @@
+import json
+import pandas as pd
+
 class Document:
     def __init__(self,fname,features):
         self.features = features
@@ -5,7 +8,11 @@ class Document:
 
 
 class Program:
+    def __init__(self):
 
+    def add_pred(self,pred):
+
+    def eval(self,doc)
 
 class Pred:
     def eval(self,doc):
@@ -53,24 +60,57 @@ class MultiPred(Pred):
                 score += 1
         return score >= score.thresh
 
+def user_input_yn(prompt,default=True):
+    prompt += f"\nEnter y/n. (Default: {'y' if default else 'n' }): "
+    response = input(prompt)
+    while response not in ['y','n','']:
+        response = input("Please enter y or n and try again: ")
+    if response == 'y':
+        return True
+    elif response == 'n':
+        return False
+    else:
+        return default
+    
 def freq_heuristic():
     
 class App:
     def __init__(self,heuristic,features_fname,examples_fname):
         self.heuristic = heuristic
         with open(features_fname,'r') as f:
-
-        with open(examples_fname,'r') as f:
+            self.features = json.load(f.read())
+        self.user_examples = pd.read_csv(examples_fname)
 
         
     def loop(self):
-        while True:
-            self.features = 
-
+        prog = Program()
+        rejected_preds = set()
+        prog_complete = user_input_yn(f"Current program is {prog}. Are you satisfied with this?",default = False)
+        while not prog_complete:
+            new_preds = self.heuristic(self.prog,self.features)
+            new_preds_str = '\n'.join([str(pred) for pred in new_preds])
+            add_preds = user_input_yn(f"New predicates generated: {new_preds_str}\n. Would you like to add all of these to your program?")
+            if add_preds:
+                for pred in new_preds:
+                    prog.add_pred(pred)
+            else:
+                add_any = user_input_yn(f"Would you like to add any of these to your program?")
+                if add_any:
+                    for pred in new_preds:
+                        add_pred = user_input_yn(f"Would you like to add this predicate to your program: {pred}")
+                        if add_pred:
+                            prog.add_pred(pred)
+                        else:
+                            rejected_preds.add(pred)
+                else:
+                    for pred in new_preds:
+                        rejected_preds.add(pred)
+                    
+            
 
 features_fname = "img_features.json"
 examples_fname = "img_examples.csv"
 
 if __name__ == "__main__":
     app = App()
-    app()
+    app.loop()

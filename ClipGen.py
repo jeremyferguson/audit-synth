@@ -24,9 +24,9 @@ class Captioner:
         img_fnames = os.listdir(img_dir)
         self.fname_map = {i:fname for i,fname in enumerate(img_fnames)}
         self.img_fnames = img_fnames
-        self.images = [Image.open(f"{img_dir}/{fname}") for fname in img_fnames[:m]]
+        self.images = [Image.open(f"{img_dir}/{fname}") for fname in img_fnames[:batch_size]]
         self.k = k
-        self.n = len(self.images)
+        self.n = len(img_fnames)
         self.batch_size = batch_size
         self.gen_context_imgs()
         self.model = model
@@ -35,7 +35,7 @@ class Captioner:
     def gen_context_imgs(self):
         
         n = len(self.images)
-        self.img_contexts = np.zeros((self.n,k),np.int32)
+        self.img_contexts = np.zeros((self.n,self.k),np.int32)
         img_indices = np.arange(n)
         img_weights = np.ones(n)
         for i in range(n):
@@ -129,14 +129,7 @@ class Captioner:
         return captions
 
 if __name__ == "__main__":
-    
-    
-    for m in range(1024,-1,-1):
-        try:
-            cap = Captioner(img_dir,cap_processor, cap_model,m)
-            break
-        except Exception as e:
-            print("failed ",m)
+    cap = Captioner(img_dir,cap_processor, cap_model)
     captions = cap.gen_captions()
     with open(out_fname, "w") as f:
         f.write(json.dumps(captions))        
