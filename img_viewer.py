@@ -28,7 +28,7 @@ class ImageNavigator:
         return image_files
 
     def load_json_data(self):
-        json_file_path = "captions.json"  # Replace with your JSON file path
+        json_file_path = "extracted_features.json"  # Replace with your JSON file path
         with open(json_file_path, 'r') as file:
             data = json.load(file)
         return data

@@ -6,8 +6,11 @@ import torch
 import torch.nn.functional as F
 import os
 import random
+from flair.data import Sentence
+from flair.models import SequenceTagger
 
-out_fname = "captions.json"
+captions_fname = "captions_2.json"
+features_fname = "extracted_features_2.json"
 device = torch.device("cuda")
 img_dir = "/home/jmfergie/streetview-images"
 from transformers import BlipProcessor, BlipForConditionalGeneration
@@ -20,7 +23,7 @@ cap_model = BlipForConditionalGeneration.from_pretrained("Salesforce/blip-image-
 
 class Captioner:
 
-    def __init__(self, img_dir,processor,model,batch_size=500,k=10):
+    def __init__(self, img_dir,processor,model,batch_size=50,k=10):
         img_fnames = os.listdir(img_dir)
         self.fname_map = {i:fname for i,fname in enumerate(img_fnames)}
         self.img_fnames = img_fnames
@@ -97,7 +100,7 @@ class Captioner:
         """Generate k candidate captions for an image."""
         inputs = self.processor(image,return_tensors="pt").to(device)
         
-        out = self.model.generate(**inputs,max_new_tokens=50,do_sample=True,num_return_sequences=self.k+1,temperature=0.7)
+        out = self.model.generate(**inputs,max_new_tokens=40,do_sample=True,num_return_sequences=self.k+1,temperature=0.7)
         candidates = self.processor.batch_decode(out,skip_special_tokens=True)
         assert isinstance(candidates, list) and len(candidates) == self.k+1 and isinstance(candidates[0], str)
         return candidates
@@ -128,8 +131,32 @@ class Captioner:
             captions[self.fname_map[i]] = self.pragmatic_captioner(i)
         return captions
 
+class ObjectExtractor:
+
+    def __init__(self):
+        self.tagger = SequenceTagger.load("flair/pos-english")
+
+    def extract(self,captions):
+        fnames = [fname for fname in captions]
+        caption_vals = [Sentence(captions[fname]) for fname in fnames]
+        self.tagger.predict(caption_vals)
+        nouns = ['NN','NNP','NNS','NNPS']
+        objects_extracted = [[tok.text for tok in sentence if tok.tag in nouns] for sentence in caption_vals]
+        object_dict = {fname:objs for fname, objs in zip(fnames,objects_extracted)}
+        return object_dict
+
+
+
 if __name__ == "__main__":
-    cap = Captioner(img_dir,cap_processor, cap_model)
+    cap = Captioner(img_dir,cap_processor, cap_model, batch_size=900,k=2)
     captions = cap.gen_captions()
-    with open(out_fname, "w") as f:
-        f.write(json.dumps(captions))        
+    print("Captioning done")
+    with open(captions_fname, "w") as f:
+        f.write(json.dumps(captions))  
+    with open(captions_fname,'r') as f:
+        captions = json.load(f)
+    extractor = ObjectExtractor()
+    obj_dict = extractor.extract(captions)
+    print("Extraction done")
+    with open(features_fname,'w') as f:
+        f.write(json.dumps(obj_dict))   
