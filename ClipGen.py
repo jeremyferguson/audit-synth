@@ -9,10 +9,10 @@ import random
 from flair.data import Sentence
 from flair.models import SequenceTagger
 
-captions_fname = "captions_2.json"
-features_fname = "extracted_features_2.json"
+captions_fname = "captions_intersection_k1.json"
+features_fname = "extracted_features_intersections_k1.json"
 device = torch.device("cuda")
-img_dir = "/home/jmfergie/streetview-images"
+img_dir = "/home/jmfergie/streetview_images_2/intersections"
 from transformers import BlipProcessor, BlipForConditionalGeneration
 
 model = CLIPModel.from_pretrained("openai/clip-vit-base-patch32").to("cuda")
@@ -24,7 +24,7 @@ cap_model = BlipForConditionalGeneration.from_pretrained("Salesforce/blip-image-
 class Captioner:
 
     def __init__(self, img_dir,processor,model,batch_size=50,k=10):
-        img_fnames = os.listdir(img_dir)
+        img_fnames = [f for f in os.listdir(img_dir) if f.endswith(('.JPG', '.jpg', '.jpeg', '.png', '.gif'))]
         self.fname_map = {i:fname for i,fname in enumerate(img_fnames)}
         self.img_fnames = img_fnames
         self.images = [Image.open(f"{img_dir}/{fname}") for fname in img_fnames[:batch_size]]
@@ -148,7 +148,7 @@ class ObjectExtractor:
 
 
 if __name__ == "__main__":
-    cap = Captioner(img_dir,cap_processor, cap_model, batch_size=900,k=2)
+    cap = Captioner(img_dir,cap_processor, cap_model, batch_size=900,k=1)
     captions = cap.gen_captions()
     print("Captioning done")
     with open(captions_fname, "w") as f:

@@ -72,7 +72,7 @@ def user_input_yn(prompt,default=True):
     else:
         return default
     
-def freq_heuristic():
+def freq_heuristic(k=10):
     
 class App:
     def __init__(self,heuristic,features_fname,examples_fname):
@@ -87,7 +87,7 @@ class App:
         rejected_preds = set()
         prog_complete = user_input_yn(f"Current program is {prog}. Are you satisfied with this?",default = False)
         while not prog_complete:
-            new_preds = self.heuristic(self.prog,self.features)
+            new_preds = self.heuristic(self.prog,self.features,rejected_preds)
             new_preds_str = '\n'.join([str(pred) for pred in new_preds])
             add_preds = user_input_yn(f"New predicates generated: {new_preds_str}\n. Would you like to add all of these to your program?")
             if add_preds:
