@@ -66,7 +66,7 @@ class ImageNavigator:
 
 if __name__ == "__main__":
     root = Tk()
-    img_dir = "/home/jmfergie/streetview-images"
+    img_dir = "/home/jmfergie/coco_imgs"
     root.title("Image Navigator")
     app = ImageNavigator(root,img_dir)
     root.mainloop()

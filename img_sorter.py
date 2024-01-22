@@ -5,9 +5,9 @@ from PIL import Image, ImageTk
 class ImageSorter:
     def __init__(self, root):
         self.root = root
-        self.image_dir = "/home/jmfergie/streetview_images_2/intersections"
-        self.yes_dir = "/home/jmfergie/streetview_images_2/intersections/safe"
-        self.no_dir = "/home/jmfergie/streetview_images_2/intersections/unsafe"
+        self.image_dir = "/home/jmfergie/coco_imgs"
+        self.yes_dir = "/home/jmfergie/coco_imgs/sports"
+        self.no_dir = "/home/jmfergie/coco_imgs/not_sports"
         self.current_image_idx = 0
         self.images = self.get_image_files()
         
@@ -19,7 +19,7 @@ class ImageSorter:
         self.root.bind('n', self.move_to_no)
 
     def get_image_files(self):
-        image_files = [f for f in os.listdir(self.image_dir) if f.endswith(('.JPG', '.jpeg', '.png', '.gif'))]
+        image_files = [f for f in os.listdir(self.image_dir) if f.endswith(('.JPG', '.jpg', '.jpeg', '.png', '.gif'))]
         return image_files
 
     def display_image(self):
