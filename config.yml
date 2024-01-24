@@ -1,9 +1,10 @@
 low_threshold: 0.2
 high_threshold: 0.8
-json_filename: extracted_features.json
-csv_filename: partial_labels.csv
+features_fname: extracted_features_detr.json
+examples_fname: partial_labeled_coco.csv
 num_feature_selection_rounds: 5
 features_combine_count: 3
-predicates_present_count: 5
+predicates_per_round: 5
+depth: 0
 use_mutual_information: true
 manual: false

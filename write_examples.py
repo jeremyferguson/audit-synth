@@ -1,7 +1,7 @@
-root_dir = "/home/jmfergie/streetview_images_2/intersections"
-yes_dir = "/home/jmfergie/streetview_images_2/intersections/safe"
-no_dir = "/home/jmfergie/streetview_images_2/intersections/unsafe"
-out_fname = "full_labeled.csv"
+root_dir = "/home/jmfergie/coco_imgs"
+yes_dir = "/home/jmfergie/coco_imgs/sports"
+no_dir = "/home/jmfergie/coco_imgs/not_sports"
+out_fname = "full_labeled_sports.csv"
 import os
 import pandas as pd
 

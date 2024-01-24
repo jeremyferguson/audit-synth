@@ -7,8 +7,9 @@ from torch.utils.data import Dataset, DataLoader
 import os
 import random
 from torchvision import transforms
+from collections import Counter
 
-features_fname = "extracted_features_detr.json"
+features_fname = "extracted_features_detr_500.json"
 device = "cuda" if torch.cuda.is_available() else "cpu"
 img_dir = "/home/jmfergie/coco_imgs"
 
@@ -52,7 +53,7 @@ class Extractor:
         
     def extract(self):
         objects = {}
-        for i in range(0,len(self.filenames),self.batch_size):
+        for i in range(0,500,self.batch_size):
             if i % 100 == 0:
                 print(i)
             fnames = self.filenames[i:i+self.batch_size]
@@ -61,7 +62,7 @@ class Extractor:
             outputs = model(**inputs)
             results = self.postprocess(images,fnames,outputs)
             for res in results:
-                objects[res] = results[res]
+                objects[res] = list(set(results[res]))
         '''for batch,fnames in self.dataloader:
             inputs = self.processor(batch)
             inputs['pixel_values'] = torch.Tensor(np.array(inputs['pixel_values'])).to(device)
