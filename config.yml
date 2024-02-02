@@ -2,13 +2,15 @@ low_threshold: 0.2
 high_threshold: 0.8
 output_threshold: 0.5
 features_fname: extracted_features_detr_500.json
-examples_fname: partial_labeled_coco.csv
-full_csv: full_labeled_sports.csv
+full_csv: partial_labeled_sports.csv
+prog_fname: prog_sports.txt
+num_examples: 1
 num_feature_selection_rounds: 5
 predicates_per_round: 5
 use_bins: false
 depth: 1
 use_mutual_information: true
-mutual_info_pool_size
+mutual_info_pool_size: 2
 manual: false 
 eval: true
+debug: true
