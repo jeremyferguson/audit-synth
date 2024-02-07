@@ -365,7 +365,7 @@ class AppConfig:
     def __init__(self, low_threshold=0.2, high_threshold=0.8, features_fname=None, full_csv=None,
                  num_feature_selection_rounds=5, features_combine_count=5,depth=0,mutual_info_pool_size=2,output_threshold=0.5,
                  predicates_per_round=5, use_mutual_information=False,manual=False,use_bins = False, eval = False, debug=False,prog_fname=None,
-                 num_examples=10):
+                 num_examples=10,examples=None):
         # Validate thresholds
         assert 0 <= low_threshold <= 1, "Low threshold must be between 0 and 1."
         assert 0 <= high_threshold <= 1, "High threshold must be between 0 and 1."
@@ -388,6 +388,7 @@ class AppConfig:
         self.mutual_info_pool_size = mutual_info_pool_size
         self.debug = debug
         self.num_examples=num_examples
+        self.examples=examples
 
     @classmethod
     def from_yaml(cls, filename):
@@ -410,9 +411,12 @@ class App:
             for feature in self.docs[fname].features:
                 self.all_features.add(feature)
 
-        all_examples = pd.read_csv(config.full_csv)
-        all_example_fnames = list(all_examples[all_examples['val']==True]['fname'])
-        self.user_examples = set(random.choices(all_example_fnames,k=config.num_examples))
+        if not config.examples:
+            all_examples = pd.read_csv(config.full_csv)
+            all_example_fnames = list(all_examples[all_examples['val']==True]['fname'])
+            self.user_examples = set(random.choices(all_example_fnames,k=config.num_examples))
+        else:
+            self.user_examples = set(config.examples)
         self.prog = Program(config.low_threshold,config.high_threshold)
 
         

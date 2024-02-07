@@ -4,6 +4,7 @@ output_threshold: 0.5
 features_fname: extracted_features_detr_500.json
 full_csv: partial_labeled_sports.csv
 prog_fname: prog_sports.txt
+examples: null
 num_examples: 1
 num_feature_selection_rounds: 5
 predicates_per_round: 5
