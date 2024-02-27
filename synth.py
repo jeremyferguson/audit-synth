@@ -5,183 +5,13 @@ import yaml
 from queue import PriorityQueue
 import random
 from pyparsing import Word, printables, QuotedString, Forward, Group, Suppress, ZeroOrMore, Literal, nums
+from lang import *
 
 class Document:
     def __init__(self,fname,features):
         self.features = set(features)
         self.fname = fname
 
-
-class Program:
-    def __init__(self,low_thresh,high_thresh,preds=None):
-        if not preds:
-            self.preds = []
-        else:
-            self.preds = preds
-        self.low_thresh = low_thresh
-        self.high_thresh = high_thresh
-
-    def add_pred(self,pred):
-        self.preds.append(pred)
-
-    def eval(self,doc,use_bins=True):
-        score = 0
-        if self.preds:
-            for pred in self.preds:
-                if pred.eval(doc):
-                    score += 1
-            fraction = score / len(self.preds)
-            if use_bins:
-                if fraction >= self.high_thresh:
-                    return 2
-                elif fraction >= self.low_thresh:
-                    return 1
-                else:
-                    return 0
-            else:
-                return score, len(self.preds)
-        else:
-            return 0, 0
-
-    def __repr__(self):
-        if not self.preds:
-            return "Empty"
-        return "\n".join([str(pred) for pred in self.preds])
-    
-    def __len__(self):
-        return len(self.preds)
-
-    def __contains__(self,pred):
-        return pred in self.preds
-
-class Pred:
-    def __repr__(self):
-        pass
-    def eval(self,doc):
-        pass
-
-class Exists(Pred):
-    def __init__(self, feature: str):
-        self.feature = feature
-
-    def eval(self,doc):
-        return self.feature in doc.features
-
-    def __repr__(self):
-        return f"Exists({self.feature})"
-
-    def __eq__(self,other):
-        return isinstance(other,Exists) and self.feature == other.feature
-    
-    def __hash__(self):
-        return hash(("Exists",self.feature))
-
-
-class Not(Pred):
-    def __init__(self,pred):
-        self.pred = pred
-
-    def eval(self,doc):
-        return not self.pred.eval(doc)
-
-    def __repr__(self):
-        return f"Not({self.pred})"
-
-    def __eq__(self,other):
-        return isinstance(other,Not) and self.pred == other.pred
-
-    def __hash__(self):
-        return hash(("Not",self.pred))
-
-class AndPred(Pred):
-    def __init__(self,pred1, pred2):
-        self.pred1 = pred1
-        self.pred2 = pred2
-
-    def eval(self,doc):
-        return self.pred1.eval(doc) and self.pred2.eval(doc)
-
-    def __repr__(self):
-        return f"And({self.pred1},{self.pred2})"
-
-    def __eq__(self,other):
-        return isinstance(other,AndPred) and ((self.pred1 == other.pred1 and self.pred2 == other.pred2) or 
-        (self.pred2 == other.pred1 and self.pred1 == other.pred2))
-
-    def __hash__(self):
-        return hash(("And",self.pred1,self.pred2))
-    
-
-class OrPred(Pred):
-    def __init__(self,pred1, pred2):
-        self.pred1 = pred1
-        self.pred2 = pred2
-    
-    def eval(self,doc):
-        return self.pred1.eval(doc) or self.pred2.eval(doc)
-
-    def __repr__(self):
-        return f"Or({self.pred1},{self.pred2})"
-
-    def __eq__(self,other):
-        return isinstance(other,OrPred) and ((self.pred1 == other.pred1 and self.pred2 == other.pred2) or 
-        (self.pred2 == other.pred1 and self.pred1 == other.pred2))
-
-    def __hash__(self):
-        return hash(("Or",self.pred1,self.pred2))
-        
-class MultiPred(Pred):
-    def __init__(self,preds,thresh):
-        self.preds = preds
-        self.thresh = thresh
-    
-    def eval(self,doc):
-        score = 0
-        for pred in self.preds:
-            if pred.eval(doc):
-                score += 1
-        return score >= score.thresh
-
-    def __repr__(self):
-        return f"Multi([{','.join(self.preds)}],{self.thresh})"
-
-def parse_pred(input_str):
-    def parse_exists(tokens):
-        return Exists(tokens[1])
-
-    def parse_not(tokens):
-        return Not(tokens[1])
-
-    def parse_and(tokens):
-        return AndPred(tokens[1], tokens[2])
-
-    def parse_or(tokens):
-        return OrPred(tokens[1], tokens[2])
-
-    def parse_multi(tokens):
-        return MultiPred(tokens[0][0], int(tokens[0][1]))
-
-    identifier = QuotedString('"', multiline=True, unquoteResults=True) | Word(printables)
-    exists_parser = Literal("Exists") + Suppress("(") + identifier + Suppress(")")
-    not_parser = Forward()
-    and_parser = Forward()
-    or_parser = Forward()
-    multi_parser = Forward()
-
-    exists_parser.setParseAction(parse_exists)
-    not_parser.setParseAction(parse_not)
-    and_parser.setParseAction(parse_and)
-    or_parser.setParseAction(parse_or)
-    multi_parser.setParseAction(parse_multi)
-
-    pred_parser = exists_parser | not_parser | and_parser | or_parser #| multi_parser
-    not_parser <<= Literal("Not") + Suppress("(") + pred_parser + Suppress(")")
-    and_parser <<= Literal("And") + Suppress("(") + pred_parser + Suppress(",") + pred_parser + Suppress(")")
-    or_parser <<= Literal("Or") + Suppress("(") + pred_parser + Suppress(",") + pred_parser + Suppress(")")
-    #multi_parser <<= Literal("Multi(") + Group(ZeroOrMore(pred_parser + Suppress(","))) + Literal(",") + Word(nums)
-
-    return pred_parser.parseString(input_str, parseAll=True)[0]
-    
 def user_input_yn(prompt,default=True):
     prompt += f"\nEnter y/n. (Default: {'y' if default else 'n' }): "
     response = input(prompt)
@@ -359,13 +189,11 @@ def freq_heuristic(program, docs, features_set,examples, rejected_preds, config)
                 preds.append(item_i[2])
         return preds
 
-
-
-class AppConfig:
-    def __init__(self, low_threshold=0.2, high_threshold=0.8, features_fname=None, full_csv=None,
+class RunConfig:
+    def __init__(self, low_threshold=0.2, high_threshold=0.8, features_fname="features.json", full_csv=None,
                  num_feature_selection_rounds=5, features_combine_count=5,depth=0,mutual_info_pool_size=2,output_threshold=0.5,
-                 predicates_per_round=5, use_mutual_information=False,manual=False,use_bins = False, eval = False, debug=False,prog_fname=None,
-                 num_examples=10,examples=None):
+                 predicates_per_round=5, use_mutual_information=False,manual=False,use_bins = False, eval = False, debug=False,
+                 prog_fname="program.txt",num_examples=10,examples=None):
         # Validate thresholds
         assert 0 <= low_threshold <= 1, "Low threshold must be between 0 and 1."
         assert 0 <= high_threshold <= 1, "High threshold must be between 0 and 1."
@@ -373,8 +201,8 @@ class AppConfig:
 
         self.low_threshold = low_threshold
         self.high_threshold = high_threshold
-        self.features_fname = features_fname or "features.json"
-        self.prog_fname = prog_fname or "program.txt"
+        self.features_fname = features_fname
+        self.prog_fname = prog_fname 
         self.num_feature_selection_rounds = num_feature_selection_rounds
         self.features_combine_count = features_combine_count
         self.predicates_per_round = predicates_per_round
@@ -397,7 +225,7 @@ class AppConfig:
         return cls(**config_data)
 
     
-class App:
+class Runner:
     def __init__(self,config,heuristic=freq_heuristic):
         self.heuristic = heuristic
         self.config = config
@@ -436,6 +264,7 @@ class App:
                 preds_correct,total_preds = self.prog.eval(self.docs[fname],False)
                 output.append([fname,expected_val,preds_correct,total_preds])
         return output
+    
     def runAutomatic(self):
         with open(self.config.prog_fname,"r") as f:
             text = f.read()
@@ -475,14 +304,13 @@ class App:
                     for pred in new_preds:
                         rejected_preds.append(pred)
             prog_complete = user_input_yn(f"Current program is {self.prog}. Are you satisfied with this?",default = False)
-                    
             
 yaml_filename = "config.yml"
 
 if __name__ == "__main__":
-    config = AppConfig.from_yaml(yaml_filename)
-    app = App(config)
-    prog = app.run()
+    config = RunConfig.from_yaml(yaml_filename)
+    runner = Runner(config)
+    prog = runner.run()
     print("Final program: ",prog)
     if config.eval:
-        app.eval()
+        runner.eval()
