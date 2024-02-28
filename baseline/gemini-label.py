@@ -12,7 +12,7 @@ client = OpenAI()
 
 
 # Set your Google Cloud project ID
-PROJECT_ID = 'ml-synth-baseline'
+PROJECT_ID = 'psde'
 
 # Set your Google Cloud Storage bucket name
 BUCKET_NAME = 'coco_imgs'
@@ -134,7 +134,7 @@ def main():
     dataset = create_image_dataset(fnames)
     print("dataset created")
     gemini_pro_vision_model = GenerativeModel("gemini-1.0-pro-vision")
-    gpt_model = lambda prompt: client.chat.completions.create(model="gpt-4-vision-preview",messages=prompt)
+    #gpt_model = lambda prompt: client.chat.completions.create(model="gpt-4-vision-preview",messages=prompt)
     gemini_model = lambda prompt: gemini_pro_vision_model.generate_content(prompt)
     predictions = run_predictions(gemini_model,dataset,labels)
     predictions.to_csv(out_fname)

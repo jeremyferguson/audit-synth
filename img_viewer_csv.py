@@ -6,14 +6,16 @@ import os
 import json
 
 class ImageViewerApp:
-    def __init__(self, root, csv_file, root_directory, json_file):
+    def __init__(self, root, csv_file, root_directory, json_file,title,image_list=None):
         self.root = root
-        self.root.title("Image Viewer App")
+        self.root.title(title)
         self.root.bind("<Left>", self.prev_image)
         self.root.bind("<Right>", self.next_image)
+        self.root.bind("q",self.root.destroy)
 
         self.image_index = 0
-        self.image_list = self.load_images_from_csv(csv_file, root_directory)
+        self.image_list = [os.path.join(root_directory, fname) for fname in image_list] or \
+            self.load_images_from_csv(csv_file, root_directory)
         self.json_data = self.load_json_data(json_file)
 
         self.display_image()
@@ -67,11 +69,15 @@ class ImageViewerApp:
         self.image_index = (self.image_index - 1) % len(self.image_list)
         self.display_image()
 
-if __name__ == "__main__":
-    csv_file = "partial_labeled_coco.csv"  # Replace with your CSV file path
-    root_directory = "/home/jmfergie/coco_imgs"  # Replace with your root directory path
-    json_file = "extracted_features_detr_500.json"  # Replace with your JSON file path
-
+def launch_app(csv_file,root_directory, json_file,title,image_list=None):
     root = tk.Tk()
-    app = ImageViewerApp(root, csv_file, root_directory, json_file)
+    app = ImageViewerApp(root, csv_file, root_directory, json_file,title,image_list)
     root.mainloop()
+
+if __name__ == "__main__":
+    csv_file = "partial_labeled_coco.csv" 
+    root_directory = "/home/jmfergie/coco_imgs"  
+    json_file = "extracted_features_detr_500.json"
+    title = "Image viewer app"
+
+    launch_app(csv_file, root_directory, json_file, title)
