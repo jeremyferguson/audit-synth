@@ -73,7 +73,7 @@ def create_pareto_plot(results,param_dict,param_str,scatterplot=False):
     plt.close()
 
 def make_baseline_plots(baseline_scores,synth_scores,params_dict,fname):
-    plt.plot(range(1,synth_scores.shape[0]+1), np.mean(synth_scores,axis=1), label='Synth')
+    plt.plot(range(1,synth_scores.shape[0]), np.mean(synth_scores,axis=1), label='Synth')
     plt.plot(range(len(baseline_scores)), baseline_scores, label='Baseline')
     plt.xlabel('Number of examples')
     plt.errorbar(range(1,synth_scores.shape[0]+1), y=np.mean(synth_scores,axis=1), yerr=np.std(synth_scores,axis=1), fmt='o', capsize=5)

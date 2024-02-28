@@ -106,7 +106,7 @@ class App:
         return f1_scores
     
     def extract_baseline_exp_scores(self):
-        '''all_results = {}
+        all_results = {}
         for params_dict in self.synth_param_iter(self.baseline_params):
             params_results = {}
             for num_rounds, preds_per_round in self.synth_num_pred_iter(self.baseline_params):
@@ -121,7 +121,7 @@ class App:
                     f1_scores.append(f1)
                 params_results[(num_rounds,preds_per_round)] = f1_scores
             all_results[self.param_str_top_level(params_dict)] = params_results
-        return all_results'''
+        return all_results
     
     def param_str_top_level(self,params_dict):
         param_str = f"{params_dict['low']}-{params_dict['high']}_" + \
@@ -372,10 +372,8 @@ class App:
                     baseline_fname = f"{self.img_dir}/{self.baseline_dir}/{param_str}_{num_rounds}x{preds_per_round}_baseline.png"
                     print(all_synth_scores.keys())
                     synth_scores = all_synth_scores[param_str][(num_rounds, preds_per_round)]
-                    synth_scores_agg.append(synth_scores)
-                print(len(synth_scores_agg))
-                for scores in synth_scores_agg:
-                    print(len(scores))
+                    print(synth_scores)
+                    synth_scores_agg.append(np.mean(synth_scores))
                 make_baseline_plots(baseline_scores,np.array(synth_scores_agg),params_dict,baseline_fname)
 
 if __name__ == "__main__":
