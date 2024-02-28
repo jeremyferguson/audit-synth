@@ -18,10 +18,10 @@ class REPLParseError(Exception):
     pass
 
 class App:
-    def __init__(self,features_fname="extracted_features_detr_500.json",
-                 examples_csv_fname="partial_labeled_sports.csv",prog_fname="prog_sports.txt",manual_value=False,
-                 eval_value=True,debug_value=True,full_out_csv_filename = 'synth_results_full.csv',
-                 baseline_csv_fname="predicted_labels_gpt.csv",synth_params = None, pp_params=None, baseline_params=None,
+    def __init__(self,features_fname="extracted_features_gemini_500_5.json",
+                 examples_csv_fname="partial_labeled_sports.csv",prog_fname="prog_sports_gemini.txt",manual_value=False,
+                 eval_value=True,debug_value=True,full_out_csv_filename = 'synth_results_full=.csv',
+                 baseline_csv_fname="predicted_labels_gemini.csv",synth_params = None, pp_params=None, baseline_params=None,
                  pareto_params=None,baseline_plot_fname="baseline",ind_csv_header = None, full_csv_header = None,input_img_dir = "/home/jmfergie/coco_imgs"):
         
         self.manual_value = manual_value
@@ -42,15 +42,15 @@ class App:
         self.prog_fname = prog_fname
 
         self.default_synth_params = {"low":[0.1],"high":[0.9],"num_rounds":range(1,6),"preds_per_round":[1,5,10,15,20,25,30],
-                                 "bins":[True, False],"depth":[1],"mi":[True],"pool":[2],"examples":range(1,21)}
+                                 "bins":[True, False],"depth":[1],"mi":[True,False],"pool":[2],"examples":range(1,20)}
         self.synth_params = synth_params or self.default_synth_params
-        self.default_pp_params = {"num_samples":50, "pred_thresh":0.5,"f1_thresh":0.8,"hist_type":"stacked",
+        self.default_pp_params = {"num_samples":50, "pred_thresh":0.1,"f1_thresh":0.8,"hist_type":"stacked",
                                   "pareto_scatterplot":False
                                   }
         self.pp_params = pp_params or self.default_pp_params
         self.default_baseline_params = {"f1_thresholds":np.linspace(0.0,1.0,20),
                                         'low':[0.1],'high':[0.9],'num_rounds':[5],'preds_per_round':[15],'bins':[True],
-                                      'depth':[1],'mi':[True],'pool':[2],'k_vals':[10],'baseline_k':1}
+                                      'depth':[1],'mi':[True],'pool':[2],'k_vals':[10],'examples':range(1,21),'baseline_k':1}
         self.baseline_params = baseline_params or self.default_baseline_params
         self.default_pareto_params = {"low":[0.1],"high":[0.9],"bins":[True],"depth":[1],"mi":[True],"pool":[2],"examples":range(1,21)}
         self.pareto_params = pareto_params or self.default_pareto_params
@@ -93,12 +93,12 @@ class App:
         return results, prog
 
     def compute_baseline_scores(self) -> list[float]:
-        ground_truth_labels = pd.read_csv(self.full_examples_csv_fname)
-        predicted_labels = pd.read_csv(self.baseline_csv_filename)
-        grouped = predicted_labels.group_by(['k'])
+        ground_truth_labels = pd.read_csv(self.examples_csv_fname)
+        predicted_labels = pd.read_csv(self.baseline_csv_fname)
+        columns = predicted_labels.groupby(['k'])
         f1_scores = []
-        for group in grouped:
-            merged_df = pd.merge(group, ground_truth_labels, on='fname', suffixes=('_pred', '_ground'))
+        for _, column in columns:
+            merged_df = pd.merge(column, ground_truth_labels, on='fname', suffixes=('_pred', '_ground'))
             pred_vals = merged_df['val_pred'].tolist()
             ground_vals = merged_df['val_ground'].tolist()
             _, _, f1 = compute_metrics_baseline(zip(ground_vals,pred_vals))
@@ -106,22 +106,22 @@ class App:
         return f1_scores
     
     def extract_baseline_exp_scores(self):
-        all_results = {}
-        for params_dict in self.param_iter_noex(self.baseline_params):
+        '''all_results = {}
+        for params_dict in self.synth_param_iter(self.baseline_params):
             params_results = {}
             for num_rounds, preds_per_round in self.synth_num_pred_iter(self.baseline_params):
                 fname = self.ind_csv_fname(params_dict)
                 results = pd.read_csv(fname)
-                preds_results = results[results['predicates_per_round']==preds_per_round and results['num_feature_selection_rounds']==num_rounds]
+                preds_results = results[(results['predicates_per_round']==preds_per_round) & (results['num_feature_selection_rounds']==num_rounds)]
                 runs = preds_results.groupby('run_number')
                 f1_scores = []
                 for _,run in runs:
-                    run_results = zip(list(run['filename']),list(run['expected_value']),list(run['predicates_correct']),list(run('total_predicates')))
-                    f1 = compute_max_f1_scores(run_results)
+                    run_results = zip(list(run['filename']),list(run['expected_value']),list(run['predicates_correct']),list(run['total_predicates']))
+                    f1 = compute_max_f1_scores(run_results,self.baseline_params['f1_thresholds'])
                     f1_scores.append(f1)
                 params_results[(num_rounds,preds_per_round)] = f1_scores
-            all_results[self.param_str_noex(params_dict)] = params_results
-        return all_results
+            all_results[self.param_str_top_level(params_dict)] = params_results
+        return all_results'''
     
     def param_str_top_level(self,params_dict):
         param_str = f"{params_dict['low']}-{params_dict['high']}_" + \
@@ -171,7 +171,7 @@ class App:
         return pred_size_combinations
     
     def run_all(self):
-        all_examples = pd.read_csv(self.all_examples_csv_value)
+        all_examples = pd.read_csv(self.examples_csv_fname)
         all_example_fnames = list(all_examples[all_examples['val']==True]['fname'])
         full_results = []
         # Iterate through parameter combinations
@@ -187,7 +187,7 @@ class App:
                     params_dict['num_rounds'] = num_rounds
                     params_dict['preds_per_round'] = predicates_per_round
                     results, prog = self.run_once(params_dict)
-                    precision, recall, f1 = compute_metrics(result,self.pp_params["pred_thresh"])
+                    precision, recall, f1 = compute_metrics_synth(results,self.pp_params["pred_thresh"])
                     f1_above_thresh = f1 > self.pp_params['f1_thresh']
                     full_results.append([params_dict['low'],params_dict['high'],params_dict['num_rounds'],params_dict['preds_per_round'],
                                         params_dict['use_bins'],params_dict['depth'],params_dict['use_mi'],params_dict['mi_pool'],
@@ -204,10 +204,10 @@ class App:
                     if f1_above_thresh:
                         break
             df = pd.DataFrame(columns = self.ind_csv_header,data=ind_results)
-            df.to_csv(self.ind_csv_fname(params_dict))
+            #df.to_csv(self.ind_csv_fname(params_dict))
         df = pd.DataFrame(columns = self.full_csv_header,data=full_results)
-        df.to_csv(f"{self.csv_dir}/{self.full_csv_filename}")
-        print(f"Results written to {self.csv_dir}/{self.full_csv_filename}")
+        #df.to_csv(f"{self.csv_dir}/{self.full_csv_filename}")
+        print(f"Results written to {self.csv_dir}/{self.full_out_csv_filename}")
 
     def parse_prog(self,fname):
         with open(fname,'r') as f:
@@ -248,9 +248,9 @@ class App:
     #syntax: set ctx1 param1 expr1 ... ctxN paramN exprN
     #warning: will evaluate arbitrary code. Don't use this for secure stuff
     def parse_set(self,terms):
-        if len(terms) % 3 == 1:
+        if len(terms) % 3 != 0:
             raise REPLParseError("Invalid SET expression. Please use the form set ctx1 param1 expr1 ... ctxN paramN exprN")
-        for i in range(0,len(terms),2):
+        for i in range(0,len(terms)-1,2):
             ctx = terms[i]
             param = terms[i+1]
             expr = terms[i+2]
@@ -365,10 +365,18 @@ class App:
             for num_rounds, preds_per_round in self.synth_num_pred_iter(self.baseline_params):
                 params_dict['num_rounds'] = num_rounds
                 params_dict['preds_per_round'] = preds_per_round
-                param_str = self.param_str_noex(params_dict)
-                baseline_fname = f"{self.img_dir}/{self.baseline_dir}/{param_str}_{num_rounds}x{preds_per_round}_baseline.png"
-                synth_scores = all_synth_scores[param_str][(num_rounds, preds_per_round)]
-                make_baseline_plots(baseline_scores,synth_scores,params_dict,baseline_fname)
+                synth_scores_agg = []
+                for num_examples in self.baseline_params['examples']:
+                    params_dict['num_examples'] = num_examples
+                    param_str = self.param_str_top_level(params_dict)
+                    baseline_fname = f"{self.img_dir}/{self.baseline_dir}/{param_str}_{num_rounds}x{preds_per_round}_baseline.png"
+                    print(all_synth_scores.keys())
+                    synth_scores = all_synth_scores[param_str][(num_rounds, preds_per_round)]
+                    synth_scores_agg.append(synth_scores)
+                print(len(synth_scores_agg))
+                for scores in synth_scores_agg:
+                    print(len(scores))
+                make_baseline_plots(baseline_scores,np.array(synth_scores_agg),params_dict,baseline_fname)
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
@@ -376,7 +384,7 @@ if __name__ == "__main__":
         description='CLI for running synthesis')
     parser.add_argument('-f','--fname',required=False)
     args = parser.parse_args()
-    app = App()
+    app = App(debug_value=False)
     if not args.fname:
         app.run_repl() 
     else:

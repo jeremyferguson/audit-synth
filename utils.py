@@ -13,9 +13,9 @@ def compute_metrics_baseline(results):
     return compute_metrics(results,lambda pred: pred)
 
 def compute_metrics(results,eval) -> tuple[int,int,float]:
-    true_pos = len(filter(lambda expected, pred: expected and eval(pred), results))
-    false_pos = len(filter(lambda expected, pred: not expected and eval(pred), results))
-    false_neg = len(filter(lambda expected, pred: expected and not eval(pred), results))
+    true_pos = len(list(filter(lambda t: t[0] and eval(t[1]), results)))
+    false_pos = len(list(filter(lambda t: not t[0] and eval(t[1]), results)))
+    false_neg = len(list(filter(lambda t: t[0] and not eval(t[1]), results)))
     if true_pos + false_pos == 0:
         precision = 0.0
     else:

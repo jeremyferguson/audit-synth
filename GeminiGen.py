@@ -5,12 +5,10 @@ import os
 import random
 from collections import Counter
 import vertexai
-import http.client
-import typing
-import urllib.request
+import re
 from vertexai.generative_models import GenerativeModel, Image
 
-features_fname = "extracted_features_gemini_500_2.json"
+features_fname = "extracted_features_gemini_500_5.json"
 img_dir = "/home/jmfergie/coco_imgs"
 
 # Set your Google Cloud project ID
@@ -42,20 +40,31 @@ class Extractor:
     
     def extract(self):
         objects = {}
-        for i in range(10,15):
+        for i in range(500):
             fname = self.filenames[i]
             image = Image.load_from_file(f"{self.img_dir}/{fname}")
-            
+            if i % 50 == 0 and i > 0:
+                with open(f"{i}_{features_fname}",'w') as f:
+                    f.write(json.dumps(objects))  
             responses = self.genPrompt(image)
             for response in responses:
-                output = response.text
-                print(output)
-                if output.count('"') % 2 == 1:
-                    output += '"]'
-                if output[-1] != ']':
-                    output += ']'
-                print(eval(output))
-                objects[fname] = eval(output)
+                try:
+                    output = response.text
+                except ValueError:
+                    print(response)
+                    continue
+                match = re.search(r" ?- (?:[0-9]* )?([a-z A-Z]+)", output)
+                if match:
+                    matches = re.findall(r" ?- (?:[0-9]* )?([a-z A-Z]+)",output)
+                    objs = []
+                    for match in matches:
+                        objs.append(match)
+                    objects[fname] = objs
+                else:
+                    items = output.split(',')
+                    remove_formatting = lambda item: item.replace('[','').replace(']','').replace('"',"").replace(',','').replace("'",'').strip()
+                    objects[fname] = list(map(remove_formatting,items))
+                print(objects[fname])
         return objects
 
 

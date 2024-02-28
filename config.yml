@@ -1,11 +1,11 @@
 low_threshold: 0.2
 high_threshold: 0.8
 output_threshold: 0.5
-features_fname: extracted_features_detr_500.json
+features_fname: extracted_features_gemini_500_5.json
 full_csv: partial_labeled_sports.csv
-prog_fname: prog_sports.txt
+prog_fname: prog_sports_gemini.txt
 examples: null
-num_examples: 1
+num_examples: 10
 num_feature_selection_rounds: 5
 predicates_per_round: 5
 use_bins: false

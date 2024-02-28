@@ -118,7 +118,8 @@ def freq_heuristic(program, docs, features_set,examples, rejected_preds, config)
     for pred in predGen(features_set,config.depth):
         i += 1
         if i % 100 == 0 and config.debug:
-            print(i)
+            #print(i)
+            pass
         if pred in program or pred in rejected_preds or Not(pred) in program or Not(pred) in rejected_preds:
             continue
         
@@ -139,7 +140,10 @@ def freq_heuristic(program, docs, features_set,examples, rejected_preds, config)
                         user_false += 1
                     else:
                         nonuser_false += 1
-            user_approved = user_true / (user_true + user_false)
+            if user_true + user_false == 0:
+                user_approved = 0
+            else:
+                user_approved = user_true / (user_true + user_false)
             full_docs = (user_true + nonuser_true) / (user_true + user_false + nonuser_true + nonuser_false)
             score = user_approved - full_docs
         else:

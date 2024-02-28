@@ -14,8 +14,10 @@ class ImageViewerApp:
         self.root.bind("q",self.root.destroy)
 
         self.image_index = 0
-        self.image_list = [os.path.join(root_directory, fname) for fname in image_list] or \
-            self.load_images_from_csv(csv_file, root_directory)
+        if image_list:
+            self.image_list = [os.path.join(root_directory, fname) for fname in image_list]
+        else:
+            self.image_list = self.load_images_from_csv(csv_file, root_directory)
         self.json_data = self.load_json_data(json_file)
 
         self.display_image()
@@ -75,9 +77,9 @@ def launch_app(csv_file,root_directory, json_file,title,image_list=None):
     root.mainloop()
 
 if __name__ == "__main__":
-    csv_file = "partial_labeled_coco.csv" 
+    csv_file = "partial_labeled_sports.csv" 
     root_directory = "/home/jmfergie/coco_imgs"  
-    json_file = "extracted_features_detr_500.json"
+    json_file = "extracted_features_gemini_500_5.json"
     title = "Image viewer app"
 
     launch_app(csv_file, root_directory, json_file, title)
