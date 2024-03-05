@@ -4,6 +4,7 @@ output_threshold: 0.5
 features_fname: extracted_features_gemini_500_5.json
 full_csv: partial_labeled_sports.csv
 prog_fname: prog_sports_gemini.txt
+task: image
 examples: null
 num_examples: 10
 num_feature_selection_rounds: 5

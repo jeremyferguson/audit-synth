@@ -73,12 +73,12 @@ def create_pareto_plot(results,param_dict,param_str,scatterplot=False):
     plt.close()
 
 def make_baseline_plots(baseline_scores,synth_scores,params_dict,fname):
-    plt.plot(range(1,synth_scores.shape[0]), np.mean(synth_scores,axis=1), label='Synth')
+    plt.plot(range(1,synth_scores.shape[0]+1), np.mean(synth_scores,axis=1), label='Synth')
     plt.plot(range(len(baseline_scores)), baseline_scores, label='Baseline')
     plt.xlabel('Number of examples')
     plt.errorbar(range(1,synth_scores.shape[0]+1), y=np.mean(synth_scores,axis=1), yerr=np.std(synth_scores,axis=1), fmt='o', capsize=5)
-    bins_str = "bins" if params_dict['bins'] else "no bins"
-    mi_str = f"mutual info with {params_dict['pool']}k preds" if params_dict['mi'] else "no mutual info"
+    bins_str = "bins" if params_dict['use_bins'] else "no bins"
+    mi_str = f"mutual info with {params_dict['mi_pool']}k preds" if params_dict['use_mi'] else "no mutual info"
     plt.title(f"Max F1 Scores for Baseline vs Synth: {params_dict['low']} - {params_dict['high']}, " + \
             f"{bins_str}, depth {params_dict['depth']}, {mi_str}")
     plt.ylabel('Max F1 Score')

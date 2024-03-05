@@ -11,7 +11,7 @@ class ImageViewerApp:
         self.root.title(title)
         self.root.bind("<Left>", self.prev_image)
         self.root.bind("<Right>", self.next_image)
-        self.root.bind("q",self.root.destroy)
+        self.root.bind("q",root.destroy)
 
         self.image_index = 0
         if image_list:

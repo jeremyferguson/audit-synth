@@ -18,8 +18,8 @@ class REPLParseError(Exception):
     pass
 
 class App:
-    def __init__(self,features_fname="extracted_features_gemini_500_5.json",
-                 examples_csv_fname="partial_labeled_sports.csv",prog_fname="prog_sports_gemini.txt",manual_value=False,
+    def __init__(self,features_fname="extracted_features_detr_500.json",
+                 examples_csv_fname="partial_labeled_sports.csv",prog_fname="prog_sports.txt",manual_value=False,
                  eval_value=True,debug_value=True,full_out_csv_filename = 'synth_results_full=.csv',
                  baseline_csv_fname="predicted_labels_gemini.csv",synth_params = None, pp_params=None, baseline_params=None,
                  pareto_params=None,baseline_plot_fname="baseline",ind_csv_header = None, full_csv_header = None,input_img_dir = "/home/jmfergie/coco_imgs"):
@@ -50,7 +50,8 @@ class App:
         self.pp_params = pp_params or self.default_pp_params
         self.default_baseline_params = {"f1_thresholds":np.linspace(0.0,1.0,20),
                                         'low':[0.1],'high':[0.9],'num_rounds':[5],'preds_per_round':[15],'bins':[True],
-                                      'depth':[1],'mi':[True],'pool':[2],'k_vals':[10],'examples':range(1,21),'baseline_k':1}
+                                      'depth':[1],'mi':[True],'pool':[2],'k_vals':[10],'examples':range(1,21),'baseline_k':1,
+                                      'baseline_diff_thresh':0.5}
         self.baseline_params = baseline_params or self.default_baseline_params
         self.default_pareto_params = {"low":[0.1],"high":[0.9],"bins":[True],"depth":[1],"mi":[True],"pool":[2],"examples":range(1,21)}
         self.pareto_params = pareto_params or self.default_pareto_params
@@ -105,18 +106,45 @@ class App:
             f1_scores.append(f1)
         return f1_scores
     
-    def extract_baseline_exp_scores(self):
+    def compute_baseline_synth_scores(self):
+        all_examples = pd.read_csv(self.examples_csv_fname)
+        all_example_fnames = list(all_examples[all_examples['val']==True]['fname'])
+        # Iterate through parameter combinations
+        for params_dict in self.synth_param_iter(self.baseline_params):
+            ind_results = []
+            for run_no in range(self.pp_params['num_samples']):
+                print("Run: ",run_no)
+                user_examples = set(random.choices(all_example_fnames,k=params_dict['num_examples']))
+                params_dict['examples'] = user_examples
+                params_dict['run_no'] = run_no
+                for num_rounds, predicates_per_round in self.synth_num_pred_iter(self.baseline_params):
+                    print("Predicates: ",num_rounds * predicates_per_round)
+                    params_dict['num_rounds'] = num_rounds
+                    params_dict['preds_per_round'] = predicates_per_round
+                    results, prog = self.run_once(params_dict)
+                    for result in results:
+                        fname = result[0]
+                        expected_val = result[1]
+                        preds_correct = result[2]
+                        preds_total = result[3]
+                        ind_results.append([params_dict['low'],params_dict['high'],params_dict['num_rounds'],params_dict['preds_per_round'],
+                                        params_dict['use_bins'],params_dict['depth'],params_dict['use_mi'],params_dict['mi_pool'],
+                                        params_dict['num_examples'],fname,expected_val,preds_correct,preds_total,run_no,prog])
+            df = pd.DataFrame(columns = self.ind_csv_header,data=ind_results)
+            df.to_csv(self.ind_csv_fname(params_dict,dir="csv_baseline"))
+
+    def extract_baseline_exp_examples(self):
         all_results = {}
         for params_dict in self.synth_param_iter(self.baseline_params):
             params_results = {}
             for num_rounds, preds_per_round in self.synth_num_pred_iter(self.baseline_params):
-                fname = self.ind_csv_fname(params_dict)
+                fname = self.ind_csv_fname(params_dict,dir="csv_baseline")
                 results = pd.read_csv(fname)
                 preds_results = results[(results['predicates_per_round']==preds_per_round) & (results['num_feature_selection_rounds']==num_rounds)]
                 runs = preds_results.groupby('run_number')
                 f1_scores = []
                 for _,run in runs:
-                    run_results = zip(list(run['filename']),list(run['expected_value']),list(run['predicates_correct']),list(run['total_predicates']))
+                    run_results = list(zip(list(run['filename']),list(run['expected_value']),list(run['predicates_correct']),list(run['total_predicates'])))
                     f1 = compute_max_f1_scores(run_results,self.baseline_params['f1_thresholds'])
                     f1_scores.append(f1)
                 params_results[(num_rounds,preds_per_round)] = f1_scores
@@ -139,10 +167,10 @@ class App:
                         f"mi_{params_dict['mi_pool']}midepth"
         return param_str
     
-    def ind_csv_fname(self,params_dict):
+    def ind_csv_fname(self,params_dict,dir):
         param_str = self.param_str_top_level(params_dict)
         ind_csv_filename = f"{param_str}_results.csv"
-        return f"{self.csv_dir}/{ind_csv_filename}"
+        return f"{dir}/{ind_csv_filename}"
     
     def synth_param_iter(self,params):
         for param_dict in self.param_iter_noex(params):
@@ -204,9 +232,9 @@ class App:
                     if f1_above_thresh:
                         break
             df = pd.DataFrame(columns = self.ind_csv_header,data=ind_results)
-            #df.to_csv(self.ind_csv_fname(params_dict))
+            df.to_csv(self.ind_csv_fname(params_dict))
         df = pd.DataFrame(columns = self.full_csv_header,data=full_results)
-        #df.to_csv(f"{self.csv_dir}/{self.full_csv_filename}")
+        df.to_csv(f"{self.csv_dir}/{self.full_csv_filename}")
         print(f"Results written to {self.csv_dir}/{self.full_out_csv_filename}")
 
     def parse_prog(self,fname):
@@ -270,8 +298,13 @@ class App:
             params[param] = eval(expr)
 
     def parse_compute(self,terms):
-        if not terms:
-            self.run_all()
+        match terms[0]:
+            case "pareto":
+                self.run_all()
+            case "baseline":
+                self.compute_baseline_synth_scores()
+            case _:
+                raise REPLParseError(f"Invalid compute argument: {terms[0]}")
 
     def parse_plot(self,terms):
         match terms[0]:
@@ -322,7 +355,7 @@ class App:
                     
                     merged_synth_baseline = pd.merge(frac_df,baseline_k,on='fname', suffixes=('_synth', '_baseline'))
                     merged_synth_baseline_ground = pd.merge(merged_synth_baseline,ground_truth_labels,on='fname',suffixes=('','_ground'))
-                    diff = merged_synth_baseline[(merged_synth_baseline_ground['frac'] < 0.5) & (merged_synth_baseline_ground['val']) & (merged_synth_baseline_ground['val_ground'])]
+                    diff = merged_synth_baseline[(merged_synth_baseline_ground['frac'] < self.baseline_params['baseline_diff_thresh']) & (merged_synth_baseline_ground['val']) & (merged_synth_baseline_ground['val_ground'])]
                     diff_fnames = diff['fname'].tolist()
                     print(diff)
                     launch_app(None,self.input_img_dir,self.features_fname,"Baseline comparison",diff_fnames)
@@ -359,7 +392,7 @@ class App:
                     create_hist(results,params_dict,param_str,self.pp_params["hist_type"])
     
     def plot_baseline(self):
-        all_synth_scores = self.extract_baseline_exp_scores()
+        all_synth_scores = self.extract_baseline_exp_examples()
         baseline_scores = self.compute_baseline_scores()
         for params_dict in self.param_iter_noex(self.baseline_params):
             for num_rounds, preds_per_round in self.synth_num_pred_iter(self.baseline_params):
@@ -370,10 +403,8 @@ class App:
                     params_dict['num_examples'] = num_examples
                     param_str = self.param_str_top_level(params_dict)
                     baseline_fname = f"{self.img_dir}/{self.baseline_dir}/{param_str}_{num_rounds}x{preds_per_round}_baseline.png"
-                    print(all_synth_scores.keys())
                     synth_scores = all_synth_scores[param_str][(num_rounds, preds_per_round)]
-                    print(synth_scores)
-                    synth_scores_agg.append(np.mean(synth_scores))
+                    synth_scores_agg.append(synth_scores)
                 make_baseline_plots(baseline_scores,np.array(synth_scores_agg),params_dict,baseline_fname)
 
 if __name__ == "__main__":
