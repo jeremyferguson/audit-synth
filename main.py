@@ -4,12 +4,12 @@ import pandas as pd
 import random
 from synth import Runner, RunConfig
 from utils import *
-from lang import Program
 import argparse
 import sys
 import copy
 from plots import create_pareto_plot, create_hist, make_baseline_plots
 from img_viewer_csv import launch_app
+from lang import Lang, MusicLang, ImgLang
 
 class REPLQuitException(Exception):
     pass
@@ -20,20 +20,28 @@ class REPLParseError(Exception):
 class App:
     def __init__(self,features_fname="extracted_features_detr_500.json",
                  examples_csv_fname="partial_labeled_sports.csv",prog_fname="prog_sports.txt",manual_value=False,
-                 eval_value=True,debug_value=True,full_out_csv_filename = 'synth_results_full=.csv',
+                 eval_value=True,debug_value=True,full_out_csv_filename = 'synth_results_full.csv',
                  baseline_csv_fname="predicted_labels_gemini.csv",synth_params = None, pp_params=None, baseline_params=None,
-                 pareto_params=None,baseline_plot_fname="baseline",ind_csv_header = None, full_csv_header = None,input_img_dir = "/home/jmfergie/coco_imgs"):
+                 pareto_params=None,baseline_plot_fname="baseline",ind_csv_header = None, full_csv_header = None,input_doc_dir = "/home/jmfergie/coco_imgs",
+                 baseline_csv_dir="csv_baseline",
+                 task="image",img_dir = "plots",hist_dir = "hists",pareto_dir = "pareto",baseline_dir = "baseline",csv_dir = "csv_out"):
         
         self.manual_value = manual_value
         self.eval_value = eval_value
         self.debug_value = debug_value
-
-        self.img_dir = "plots"
-        self.hist_dir = "hists"
-        self.pareto_dir = "pareto"
-        self.csv_dir = "csv_out"
-        self.baseline_dir = "baseline"
-        self.input_img_dir = input_img_dir
+        if task == "image":
+            self.lang : Lang = ImgLang()
+        elif task == "music":
+            self.lang : Lang = MusicLang()
+        else:
+            raise Exception(f"Invalid task: {task}")
+        self.img_dir = img_dir
+        self.hist_dir = hist_dir
+        self.pareto_dir = pareto_dir
+        self.csv_dir = csv_dir
+        self.baseline_dir = baseline_dir
+        self.baseline_csv_dir = baseline_csv_dir
+        self.input_img_dir = input_doc_dir
 
         self.baseline_csv_fname = f"{self.baseline_dir}/{baseline_csv_fname}"
         self.full_out_csv_filename = full_out_csv_filename
@@ -42,7 +50,7 @@ class App:
         self.prog_fname = prog_fname
 
         self.default_synth_params = {"low":[0.1],"high":[0.9],"num_rounds":range(1,6),"preds_per_round":[1,5,10,15,20,25,30],
-                                 "bins":[True, False],"depth":[1],"mi":[True,False],"pool":[2],"examples":range(1,20)}
+                                 "bins":[True,False],"depth":[1],"mi":[True,False],"pool":[2],"examples":range(1,21)}
         self.synth_params = synth_params or self.default_synth_params
         self.default_pp_params = {"num_samples":50, "pred_thresh":0.1,"f1_thresh":0.8,"hist_type":"stacked",
                                   "pareto_scatterplot":False
@@ -53,7 +61,7 @@ class App:
                                       'depth':[1],'mi':[True],'pool':[2],'k_vals':[10],'examples':range(1,21),'baseline_k':1,
                                       'baseline_diff_thresh':0.5}
         self.baseline_params = baseline_params or self.default_baseline_params
-        self.default_pareto_params = {"low":[0.1],"high":[0.9],"bins":[True],"depth":[1],"mi":[True],"pool":[2],"examples":range(1,21)}
+        self.default_pareto_params = {"low":[0.1],"high":[0.9],"bins":[True,False],"depth":[1],"mi":[True,False],"pool":[2],"examples":range(1,21)}
         self.pareto_params = pareto_params or self.default_pareto_params
         self.ind_csv_header = ind_csv_header or [
             'low_threshold', 'high_threshold', 'num_feature_selection_rounds',
@@ -68,7 +76,7 @@ class App:
             'mutual_info_pool_size', 'num_examples', 'precision','recall','program','run_no','f1','f1_above_thresh','subset'
         ]
 
-    def run_once(self,params_dict: dict) -> tuple[list,Program]:
+    def run_once(self,params_dict: dict):
         config = RunConfig(
                         low_threshold=params_dict['low'],
                         high_threshold=params_dict['high'],
@@ -85,7 +93,8 @@ class App:
                         eval=self.eval_value,
                         debug=self.debug_value,
                         prog_fname=self.prog_fname,
-                        examples=params_dict['examples']
+                        examples=params_dict['examples'],
+                        lang=self.lang
                     )
         # Run the app and get evaluation results (results is now an array of tuples)
         runner = Runner(config)
@@ -131,16 +140,16 @@ class App:
                                         params_dict['use_bins'],params_dict['depth'],params_dict['use_mi'],params_dict['mi_pool'],
                                         params_dict['num_examples'],fname,expected_val,preds_correct,preds_total,run_no,prog])
             df = pd.DataFrame(columns = self.ind_csv_header,data=ind_results)
-            df.to_csv(self.ind_csv_fname(params_dict,dir="csv_baseline"))
+            df.to_csv(self.ind_csv_fname(params_dict,dir=self.baseline_csv_dir))
 
     def extract_baseline_exp_examples(self):
         all_results = {}
         for params_dict in self.synth_param_iter(self.baseline_params):
             params_results = {}
             for num_rounds, preds_per_round in self.synth_num_pred_iter(self.baseline_params):
-                fname = self.ind_csv_fname(params_dict,dir="csv_baseline")
+                fname = self.ind_csv_fname(params_dict,dir=self.baseline_csv_dir)
                 results = pd.read_csv(fname)
-                preds_results = results[(results['predicates_per_round']==preds_per_round) & (results['num_feature_selection_rounds']==num_rounds)]
+                preds_results:pd.DataFrame = results[(results['predicates_per_round']==preds_per_round) & (results['num_feature_selection_rounds']==num_rounds)]
                 runs = preds_results.groupby('run_number')
                 f1_scores = []
                 for _,run in runs:
@@ -232,9 +241,9 @@ class App:
                     if f1_above_thresh:
                         break
             df = pd.DataFrame(columns = self.ind_csv_header,data=ind_results)
-            df.to_csv(self.ind_csv_fname(params_dict))
+            df.to_csv(self.ind_csv_fname(params_dict,dir=self.csv_dir))
         df = pd.DataFrame(columns = self.full_csv_header,data=full_results)
-        df.to_csv(f"{self.csv_dir}/{self.full_csv_filename}")
+        df.to_csv(f"{self.csv_dir}/{self.full_out_csv_filename}")
         print(f"Results written to {self.csv_dir}/{self.full_out_csv_filename}")
 
     def parse_prog(self,fname):
@@ -358,7 +367,7 @@ class App:
                     diff = merged_synth_baseline[(merged_synth_baseline_ground['frac'] < self.baseline_params['baseline_diff_thresh']) & (merged_synth_baseline_ground['val']) & (merged_synth_baseline_ground['val_ground'])]
                     diff_fnames = diff['fname'].tolist()
                     print(diff)
-                    launch_app(None,self.input_img_dir,self.features_fname,"Baseline comparison",diff_fnames)
+                    launch_app(None,self.input_doc_dir,self.features_fname,"Baseline comparison",diff_fnames)
                     
 
     def plot_pareto(self):
@@ -394,6 +403,7 @@ class App:
     def plot_baseline(self):
         all_synth_scores = self.extract_baseline_exp_examples()
         baseline_scores = self.compute_baseline_scores()
+        baseline_scores = []
         for params_dict in self.param_iter_noex(self.baseline_params):
             for num_rounds, preds_per_round in self.synth_num_pred_iter(self.baseline_params):
                 params_dict['num_rounds'] = num_rounds
@@ -413,7 +423,7 @@ if __name__ == "__main__":
         description='CLI for running synthesis')
     parser.add_argument('-f','--fname',required=False)
     args = parser.parse_args()
-    app = App(debug_value=False)
+    app = App(debug_value=False,task='image')
     if not args.fname:
         app.run_repl() 
     else:

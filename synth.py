@@ -3,16 +3,15 @@ import pandas as pd
 import numpy as np
 import yaml
 import random
-from lang import ImgLang, MusicLang
-from music_lang import parse_music_pred, music_freq_heuristic
-from utils import user_input_yn
+from lang import Lang,ImgLang, MusicLang
+from utils import user_input_yn, compute_max_f1_scores
 
 
 class RunConfig:
     def __init__(self, low_threshold=0.2, high_threshold=0.8, features_fname="features.json", full_csv=None,
                  num_feature_selection_rounds=5, features_combine_count=5,depth=0,mutual_info_pool_size=2,output_threshold=0.5,
                  predicates_per_round=5, use_mutual_information=False,manual=False,use_bins = False, eval = False, debug=False,
-                 prog_fname="program.txt",num_examples=10,examples=None,lang=None,task="image"):
+                 prog_fname="program.txt",num_examples=10,examples=None,lang:Lang=None,task="image"):
         # Validate thresholds
         assert 0 <= low_threshold <= 1, "Low threshold must be between 0 and 1."
         assert 0 <= high_threshold <= 1, "High threshold must be between 0 and 1."
@@ -62,7 +61,8 @@ class Runner:
         if not config.examples:
             all_examples = pd.read_csv(config.full_csv)
             all_example_fnames = list(all_examples[all_examples['val']==True]['fname'])
-            self.user_examples = set(random.choices(all_example_fnames,k=config.num_examples))
+            
+            self.user_examples = set(random.sample(all_example_fnames,k=config.num_examples))
         else:
             self.user_examples = set(config.examples)
         self.prog = self.lang.Program(config.low_threshold,config.high_threshold)
@@ -94,7 +94,7 @@ class Runner:
             print(ref_preds)
         rejected_preds = []
         for _ in range(self.config.num_feature_selection_rounds):
-            new_preds = self.lang.heuristic(self.prog,self.docs,self.all_features,self.user_examples,rejected_preds,self.config)
+            new_preds = self.lang.freq_heuristic(self.prog,self.docs,self.all_features,self.user_examples,rejected_preds,self.config)
             for pred in new_preds:
                 if pred in ref_preds:
                     self.prog.add_pred(pred)
@@ -105,7 +105,7 @@ class Runner:
         rejected_preds = []
         prog_complete = user_input_yn(f"Current program is: \n{self.prog}\nAre you satisfied with this?",default = False)
         while not prog_complete:
-            new_preds = self.lang.heuristic(self.prog,self.docs,self.all_features,self.user_examples,rejected_preds,self.config)
+            new_preds = self.lang.freq_heuristic(self.prog,self.docs,self.all_features,self.user_examples,rejected_preds,self.config)
             print("New predicates generated: ")
             for pred in new_preds:
                 self.lang.displayPred(pred)
@@ -117,9 +117,10 @@ class Runner:
                 add_any = user_input_yn(f"Would you like to add any of these to your program?")
                 if add_any:
                     for pred in new_preds:
-                        add_pred = user_input_yn(f"Would you like to add this predicate to your program: {pred}")
+                        self.lang.displayPred(pred)
+                        add_pred = user_input_yn(f"Would you like to add this predicate to your program?")
                         if add_pred:
-                            prog.add_pred(pred)
+                            self.prog.add_pred(pred)
                         else:
                             rejected_preds.append(pred)
                 else:
@@ -135,4 +136,5 @@ if __name__ == "__main__":
     prog = runner.run()
     print("Final program: ",prog)
     if config.eval:
-        runner.eval()
+        results = runner.eval()
+        print(compute_max_f1_scores(results,np.linspace(0.0,1.0,20)))

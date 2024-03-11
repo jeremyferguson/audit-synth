@@ -49,11 +49,12 @@ def create_all_audio():
         create_midi(parsedChords,fname.removesuffix('.txt'),'midifiles')
 
 def create_midi(chords,fname,dir):
+    parsedChords = [parseChord(chord) for chord in chords]
     midi_data = pretty_midi.PrettyMIDI()
     piano_program = pretty_midi.instrument_name_to_program('Acoustic Grand Piano')
     piano = pretty_midi.Instrument(program=piano_program)
     length = 1
-    for n, chord in enumerate(chords):
+    for n, chord in enumerate(parsedChords):
         for pitch in chord.pitches:
             note_number = pitch.midi
             note = pretty_midi.Note(velocity=100, pitch=note_number, start=n * length, end=(n + 1) * length)

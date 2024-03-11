@@ -5,6 +5,7 @@ import numpy as np
 import seaborn as sns
 import matplotlib.pyplot as plt
 
+sns.set_theme()
 
 def create_hist(df, params_dict, param_str,style):
     plt.figure(figsize=(10, 6))
@@ -45,6 +46,7 @@ def create_pareto_plot(results,param_dict,param_str,scatterplot=False):
         min_values_run_no = []
 
         for _, run in runs:
+            #print(run)
             run_filtered = run[run['f1_above_thresh']]
             if run_filtered.empty:
                 min_values_run_no.append(run['num_preds'].max())
@@ -58,12 +60,12 @@ def create_pareto_plot(results,param_dict,param_str,scatterplot=False):
         ys = [pair[1] for pair in mins]
         
     plt.figure(figsize=(10, 6))
-    sns.lineplot(x=examples, y=means)
-    plt.errorbar(x=examples, y=means, yerr=stds, fmt='o', capsize=5)
+    sns.lineplot(x=examples, y=means,color='g')
+    plt.errorbar(x=examples, y=means, yerr=stds, fmt='g', capsize=5)
     if scatterplot:
         plt.scatter(xs,ys)
     plt.xlabel('Number of examples')
-    plt.ylabel(f'Programmer decisions to reach {param_dict["f1_thresh"]} F1 score')
+    plt.ylabel(f'Programmer Decisions')
     bins_str = "bins" if param_dict['use_bins'] else "no bins"
     mi_str = f"mutual info with {param_dict['mi_pool']}k preds" if param_dict['use_mi'] else "no mutual info"
     plt.title(f"Programmer decisions vs examples {param_dict['low']} - {param_dict['high']}, " + \

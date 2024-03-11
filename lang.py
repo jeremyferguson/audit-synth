@@ -4,13 +4,58 @@ import numpy as np
 from write_midis import create_midi
 import os
 import pygame
-
+import time
 
 
 pygame.init()
 pygame.mixer.init(frequency=44100, size=-16, channels=1)
 
 class Lang:
+    def __init__(self):
+        self.preds = {}
+        
+    class Program:
+        def __init__(self,low_thresh,high_thresh,preds=None):
+            if not preds:
+                self.preds = []
+            else:
+                self.preds = preds
+            self.low_thresh = low_thresh
+            self.high_thresh = high_thresh
+
+        def add_pred(self,pred):
+            self.preds.append(pred)
+
+        def eval(self,doc,use_bins=True):
+            score = 0
+            if self.preds:
+                for pred in self.preds:
+                    if pred.eval(doc):
+                        score += 1
+                fraction = score / len(self.preds)
+                if use_bins:
+                    if fraction >= self.high_thresh:
+                        return 2
+                    elif fraction >= self.low_thresh:
+                        return 1
+                    else:
+                        return 0
+                else:
+                    return score, len(self.preds)
+            else:
+                return 0, 0
+
+        def __repr__(self):
+            if not self.preds:
+                return "Empty"
+            return "\n".join([str(pred) for pred in self.preds])
+        
+        def __len__(self):
+            return len(self.preds)
+
+        def __contains__(self,pred):
+            return pred in self.preds
+        
     def mutual_info(self,pred1,pred2,docs):
         A_count = 0
         B_count = 0
@@ -45,8 +90,10 @@ class Lang:
         combined_pred = None
         top_preds = []
         all_preds = set()
+        i = 0
         while not topk.empty():
             item_i = topk.get()
+            i += 1
             if item_i[3] < 0:
                 all_preds.add(self.Not(item_i[2]))
             else:
@@ -56,6 +103,8 @@ class Lang:
             for pred in all_preds:
                 mi = self.mutual_info(pred,combined_pred,docs)
                 mis[pred] = mi
+            if not mis:
+                break
             if not combined_pred:
                 max_pred = max(mis,key=lambda pred:mis[pred])
             else:
@@ -78,6 +127,8 @@ class Lang:
                 top_docs.add(fname)
             elif doc_score == 0:
                 bottom_docs.add(fname)
+        if config.debug:
+            print(len(bottom_docs),len(top_docs))
         if config.use_mutual_information and len(top_docs) > 0:
             size = config.predicates_per_round * config.mutual_info_pool_size
         else:
@@ -86,7 +137,7 @@ class Lang:
         i = 0
         if config.debug:
             print("Examples:",examples)
-        for pred in self.predGen(features_set,config.depth):
+        for pred in self.predGen(docs,features_set,config.depth):
             i += 1
             if i % 100 == 0 and config.debug:
                 #print(i)
@@ -150,6 +201,7 @@ class Lang:
                 item_k = topk.get()
                 to_push = max(item_i,item_k,key=lambda item:item[0])
                 topk.put(to_push)
+        
         if config.use_mutual_information and len(top_docs) > 0:
             return self.filter_topk(config.predicates_per_round,topk,docs)
         else:
@@ -165,49 +217,10 @@ class Lang:
             return preds
 
 class ImgLang(Lang):
-
-    class Program:
-        def __init__(self,low_thresh,high_thresh,preds=None):
-            if not preds:
-                self.preds = []
-            else:
-                self.preds = preds
-            self.low_thresh = low_thresh
-            self.high_thresh = high_thresh
-
-        def add_pred(self,pred):
-            self.preds.append(pred)
-
-        def eval(self,doc,use_bins=True):
-            score = 0
-            if self.preds:
-                for pred in self.preds:
-                    if pred.eval(doc):
-                        score += 1
-                fraction = score / len(self.preds)
-                if use_bins:
-                    if fraction >= self.high_thresh:
-                        return 2
-                    elif fraction >= self.low_thresh:
-                        return 1
-                    else:
-                        return 0
-                else:
-                    return score, len(self.preds)
-            else:
-                return 0, 0
-
-        def __repr__(self):
-            if not self.preds:
-                return "Empty"
-            return "\n".join([str(pred) for pred in self.preds])
-        
-        def __len__(self):
-            return len(self.preds)
-
-        def __contains__(self,pred):
-            return pred in self.preds
-
+    class Document:
+        def __init__(self,fname,features):
+            self.features = set(features)
+            self.fname = fname
     class Pred:
         def __repr__(self):
             pass
@@ -336,20 +349,32 @@ class ImgLang(Lang):
 
         return pred_parser.parseString(input_str, parseAll=True)[0]
     
-    def predGen(self,features,depth):
-        def ZeroDepth():
-            for feature in features:
-                yield ImgLang.Exists(feature)
-        if depth == 0:
-            for pred in ZeroDepth():
-                yield pred
-        else:
-            for i, pred1 in enumerate(ZeroDepth()):
-                yield pred1
-                for j, pred2 in enumerate(ZeroDepth()):
-                    if i < j:
-                        yield ImgLang.AndPred(pred1,pred2)
-                        #yield OrPred(pred1, pred2)
+    def predGen(self,docs,features,depth):
+        def genPredsLevel(depth):
+            if depth in self.preds:
+                return self.preds[depth]
+            elif depth == 0:
+                levelPreds = [ImgLang.Exists(feature) for feature in features]
+                self.preds[0] = levelPreds
+                return levelPreds
+            elif depth == 1:
+                levelPreds = set()
+                for fname in docs:
+                    doc = docs[fname]
+                    for i, f1 in enumerate(list(doc.features)):
+                        for j, f2 in enumerate(list(doc.features)):
+                            if i < j:
+                                pred = ImgLang.AndPred(ImgLang.Exists(f1),ImgLang.Exists(f2))
+                                invPred = ImgLang.AndPred(ImgLang.Exists(f2),ImgLang.Exists(f1))
+                                if pred not in levelPreds and invPred not in levelPreds:
+                                    levelPreds.add(pred)
+                levelPreds = list(levelPreds)
+                self.preds[1] = levelPreds
+                return self.preds[1]
+        return genPredsLevel(depth)
+
+    def displayPred(self,pred):
+        print(pred)
 
 class MusicLang(Lang):
     class Document:
@@ -378,6 +403,9 @@ class MusicLang(Lang):
         def __hash__(self):
             return hash(("Not",self.pred))
         
+        def chords(self):
+            return self.pred.chords()
+        
     class OrPred(Pred):
         def __init__(self,pred1, pred2):
             self.pred1 = pred1
@@ -405,13 +433,22 @@ class MusicLang(Lang):
         
         def chords(self):
             return [self.name]
+        
+        def __repr__(self):
+            return f"Chord({self.name})"
+        
+        def __eq__(self,other):
+            return isinstance(other,MusicLang.Chord) and other.name == self.name
+    
+        def __hash__(self):
+            return hash(("Chord",self.name))
     
     class ChordSeq(Pred):
         def __init__(self,seq):
             self.seq = seq
 
         def chords(self):
-            return self.seq
+            return [c.name for c in self.seq]
 
         def eval(self,doc):
             for i in range(0,len(doc.features)-len(self.seq)):
@@ -419,13 +456,30 @@ class MusicLang(Lang):
                     return True
             return False
         
+        def __repr__(self):
+            return f'Seq({",".join([str(c) for c in self.seq])})'
+        
+        def __eq__(self,other):
+            if not isinstance(other,MusicLang.ChordSeq):
+                return False
+            if len(self.seq) != len(other.seq):
+                return False
+            for c1, c2 in zip(self.seq,other.seq):
+                if c1 != c2:
+                    return False
+            return True
+        
+        def __hash__(self):
+            return hash(("ChordSeq",','.join([str(chord) for chord in self.seq])))
+        
     def displayPred(self,pred):
         print(pred)
         cwd = os.getcwd()
-        create_midi(pred.chords(),"tmp.mid",cwd)
+        create_midi(pred.chords(),"tmp",cwd)
         midi_path = os.path.join(cwd, 'tmp.mid')
         pygame.mixer.music.load(midi_path,namehint="midi")
         pygame.mixer.music.play()
+        time.sleep(2)
 
     def parse_pred(self,input_str):
         if '[' in input_str:
@@ -435,9 +489,30 @@ class MusicLang(Lang):
         else:
             return MusicLang.Chord(input_str)
     
-    def predGen(self,features,depth):
-        if depth == 0:
-            for chord in features:
+    def predGen(self,docs,features,depth):
+        def genPreds(depth):
+            if depth in self.preds:
+                return self.preds[depth]
+            levelPreds = set()
+            if depth == 1:
+                for fname in docs:
+                    doc = docs[fname]
+                    for feature in doc.features:
+                        chord = MusicLang.Chord(feature)
+                        if chord not in levelPreds:
+                            levelPreds.add(chord)
+            else:
+                for fname in docs:
+                    doc = docs[fname]
+                    for i in range(len(doc.features)-(depth-1)):
+                        seq = MusicLang.ChordSeq([MusicLang.Chord(chord) for chord in doc.features[i:i+depth]])
+                        if seq not in levelPreds:
+                            levelPreds.add(seq)
+            self.preds[depth] = levelPreds
+            return levelPreds
+        for i in range(1, depth+1):
+            for pred in genPreds(i):
+                yield pred
 
             
 
