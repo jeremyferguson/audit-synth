@@ -8,7 +8,7 @@ import argparse
 import sys
 import copy
 from plots import create_pareto_plot, create_hist, make_baseline_plots
-from img_viewer_csv import launch_app
+from util_scripts.img_viewer_csv import launch_app
 from lang import Lang, MusicLang, ImgLang
 
 class REPLQuitException(Exception):
@@ -111,7 +111,9 @@ class App:
             merged_df = pd.merge(column, ground_truth_labels, on='fname', suffixes=('_pred', '_ground'))
             pred_vals = merged_df['val_pred'].tolist()
             ground_vals = merged_df['val_ground'].tolist()
-            _, _, f1 = compute_metrics_baseline(zip(ground_vals,pred_vals))
+            #print(pred_vals)
+            #print(ground_vals)
+            _, _, f1 = compute_metrics_baseline(list(zip(ground_vals,pred_vals)))
             f1_scores.append(f1)
         return f1_scores
     
@@ -401,9 +403,9 @@ class App:
                     create_hist(results,params_dict,param_str,self.pp_params["hist_type"])
     
     def plot_baseline(self):
-        all_synth_scores = self.extract_baseline_exp_examples()
+        all_synth_scores = np.array(1)#self.extract_baseline_exp_examples()
         baseline_scores = self.compute_baseline_scores()
-        baseline_scores = []
+        #baseline_scores = []
         for params_dict in self.param_iter_noex(self.baseline_params):
             for num_rounds, preds_per_round in self.synth_num_pred_iter(self.baseline_params):
                 params_dict['num_rounds'] = num_rounds
@@ -413,7 +415,7 @@ class App:
                     params_dict['num_examples'] = num_examples
                     param_str = self.param_str_top_level(params_dict)
                     baseline_fname = f"{self.img_dir}/{self.baseline_dir}/{param_str}_{num_rounds}x{preds_per_round}_baseline.png"
-                    synth_scores = all_synth_scores[param_str][(num_rounds, preds_per_round)]
+                    synth_scores = np.array(1)#all_synth_scores[param_str][(num_rounds, preds_per_round)]
                     synth_scores_agg.append(synth_scores)
                 make_baseline_plots(baseline_scores,np.array(synth_scores_agg),params_dict,baseline_fname)
 

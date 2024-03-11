@@ -1,7 +1,7 @@
 from pyparsing import *
 from queue import PriorityQueue
 import numpy as np
-from write_midis import create_midi
+from util_scripts.write_midis import create_midi
 import os
 import pygame
 import time
@@ -379,7 +379,7 @@ class ImgLang(Lang):
 class MusicLang(Lang):
     class Document:
         def __init__(self,fname,features):
-            self.features = list(features)
+            self.features = features
             self.fname = fname
     class Pred:
         def __repr__(self):
@@ -405,6 +405,9 @@ class MusicLang(Lang):
         
         def chords(self):
             return self.pred.chords()
+        
+        def __len__(self):
+            return len(self.pred)
         
     class OrPred(Pred):
         def __init__(self,pred1, pred2):
@@ -442,6 +445,9 @@ class MusicLang(Lang):
     
         def __hash__(self):
             return hash(("Chord",self.name))
+        
+        def __len__(self):
+            return 1
     
     class ChordSeq(Pred):
         def __init__(self,seq):
@@ -452,7 +458,7 @@ class MusicLang(Lang):
 
         def eval(self,doc):
             for i in range(0,len(doc.features)-len(self.seq)):
-                if self.seq == doc.features[i:i+len(self.seq)]:
+                if self.chords() == doc.features[i:i+len(self.seq)]:
                     return True
             return False
         
@@ -472,6 +478,9 @@ class MusicLang(Lang):
         def __hash__(self):
             return hash(("ChordSeq",','.join([str(chord) for chord in self.seq])))
         
+        def __len__(self):
+            return len(self.seq)
+        
     def displayPred(self,pred):
         print(pred)
         cwd = os.getcwd()
@@ -479,7 +488,7 @@ class MusicLang(Lang):
         midi_path = os.path.join(cwd, 'tmp.mid')
         pygame.mixer.music.load(midi_path,namehint="midi")
         pygame.mixer.music.play()
-        time.sleep(2)
+        time.sleep(len(pred))
 
     def parse_pred(self,input_str):
         if '[' in input_str:

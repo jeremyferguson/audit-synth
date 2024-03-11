@@ -36,53 +36,58 @@ def create_hist(df, params_dict, param_str,style):
 
 def create_pareto_plot(results,param_dict,param_str,scatterplot=False):
     columns = results.groupby('num_examples')
-    examples = []
     means = []
     stds = []
-    mins = []
+    timeouts = []
+    xs = []
     for num_examples, column in columns:
-        examples.append(num_examples)
         runs = column.groupby('run_no')
         min_values_run_no = []
-
         for _, run in runs:
-            #print(run)
             run_filtered = run[run['f1_above_thresh']]
             if run_filtered.empty:
-                min_values_run_no.append(run['num_preds'].max())
+                timeouts.append((num_examples,run['num_preds'].max()))
             else:
                 min_values_run_no.append(run_filtered['num_preds'].min())
-        coords = [(num_examples, val) for val in min_values_run_no]
-        mins.extend(coords)
-        means.append(np.mean(min_values_run_no))
-        stds.append(np.std(min_values_run_no))
-        xs = [pair[0] for pair in mins]
-        ys = [pair[1] for pair in mins]
-        
-    plt.figure(figsize=(10, 6))
-    sns.lineplot(x=examples, y=means,color='g')
-    plt.errorbar(x=examples, y=means, yerr=stds, fmt='g', capsize=5)
-    if scatterplot:
-        plt.scatter(xs,ys)
-    plt.xlabel('Number of examples')
+        if min_values_run_no:
+            means.append(np.mean(min_values_run_no))
+            stds.append(np.std(min_values_run_no))
+            xs.append(num_examples-1)
+    print(xs)
+    print(means)
+    timeouts_df = pd.DataFrame(columns=['col','y'],data=timeouts)
+    plt.xticks(range(2,22,2))
+    plt.yticks(range(0,200,))
+    plt.figure(figsize=(10, 6)) 
+    plt.xlim(0,21)
+    sns.lineplot(x=xs, y=means,color='b',label = "Successful Runs")
+    plt.errorbar(x=xs, y=means, yerr=stds, fmt='b', capsize=5)
+    plot = sns.stripplot(data=timeouts_df,x='col',y='y',color='r',jitter=1.0,marker='^',label="Timeouts")
+    handles, labels = plot.get_legend_handles_labels()
+    plt.legend(handles[:2], labels[:2])
+    #plot.add(sns.objects.Jitter())
+    plt.xlabel('Number of Examples')
     plt.ylabel(f'Programmer Decisions')
     bins_str = "bins" if param_dict['use_bins'] else "no bins"
     mi_str = f"mutual info with {param_dict['mi_pool']}k preds" if param_dict['use_mi'] else "no mutual info"
-    plt.title(f"Programmer decisions vs examples {param_dict['low']} - {param_dict['high']}, " + \
-            f"{bins_str}, depth {param_dict['depth']}, {mi_str}")
+    plt.title(f"Programmer Decisions vs Number of Examples ")
     plt.grid(True)
     plt.savefig(f"{param_str}_pareto.png")
     plt.close()
 
 def make_baseline_plots(baseline_scores,synth_scores,params_dict,fname):
-    plt.plot(range(1,synth_scores.shape[0]+1), np.mean(synth_scores,axis=1), label='Synth')
-    plt.plot(range(len(baseline_scores)), baseline_scores, label='Baseline')
-    plt.xlabel('Number of examples')
-    plt.errorbar(range(1,synth_scores.shape[0]+1), y=np.mean(synth_scores,axis=1), yerr=np.std(synth_scores,axis=1), fmt='o', capsize=5)
+    #plt.plot(range(1,synth_scores.shape[0]+1), np.mean(synth_scores,axis=1), label='Synth')
+    print(baseline_scores)
+    plt.plot(range(1,len(baseline_scores)+1), baseline_scores, label='Baseline')
+    plt.xlabel('Number of Examples')
+    plt.ylim(0,1)
+    plt.xlim(0,max(len(baseline_scores),len(synth_scores)))
+    plt.yticks(np.linspace(0.0,1.0,5))
+    plt.xticks(range(2,22,2))
+    #plt.errorbar(range(1,synth_scores.shape[0]+1), y=np.mean(synth_scores,axis=1), yerr=np.std(synth_scores,axis=1), fmt='o', capsize=5)
     bins_str = "bins" if params_dict['use_bins'] else "no bins"
     mi_str = f"mutual info with {params_dict['mi_pool']}k preds" if params_dict['use_mi'] else "no mutual info"
-    plt.title(f"Max F1 Scores for Baseline vs Synth: {params_dict['low']} - {params_dict['high']}, " + \
-            f"{bins_str}, depth {params_dict['depth']}, {mi_str}")
+    plt.title(f"F1 Scores for Baseline vs Synth")
     plt.ylabel('Max F1 Score')
     plt.legend()
     plt.savefig(fname)
