@@ -1,0 +1,5 @@
+set pp num_samples 100
+#compute perf
+#plot perf
+#compute ablation
+plot ablation

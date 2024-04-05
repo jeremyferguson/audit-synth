@@ -41,7 +41,7 @@ class ImgDataset(Dataset):
         return image,filename
 
 class Extractor:
-
+    
     def __init__(self, img_dir,processor,model,batch_size=10):
         self.img_dir = img_dir
         self.filenames = [f for f in os.listdir(img_dir) if f.endswith(('.JPG', '.jpg', '.jpeg', '.png', '.gif'))]

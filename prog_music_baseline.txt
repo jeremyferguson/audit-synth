@@ -1,0 +1,7 @@
+set baseline num_rounds [5]
+set baseline preds_per_round [5,10,20]
+set baseline depth [1,2]
+set baseline examples range(1,10,5)
+set pp num_samples 20
+#compute baseline
+plot baseline

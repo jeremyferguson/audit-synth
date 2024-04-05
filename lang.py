@@ -4,6 +4,7 @@ import numpy as np
 from util_scripts.write_midis import create_midi
 import os
 import pygame
+import random
 import time
 
 
@@ -83,7 +84,7 @@ class Lang:
             p_B = B_count / total
             if (p_AB) == 0:
                 return 0
-            mi = p_AB * np.log(p_AB / (p_A * p_B))
+            mi = p_AB * np.log2(p_AB / (p_A * p_B))
             return mi
         
     def filter_topk(self,k,topk,docs):
@@ -105,6 +106,7 @@ class Lang:
                 mis[pred] = mi
             if not mis:
                 break
+            #max_pred = max(mis,key=lambda pred:mis[pred])
             if not combined_pred:
                 max_pred = max(mis,key=lambda pred:mis[pred])
             else:
@@ -216,6 +218,9 @@ class Lang:
                     preds.append(item_i[2])
             return preds
 
+    def rand_heuristic(self,program, docs, features_set,examples, rejected_preds, config):
+        return random.sample(self.predGen(docs,features_set,config.depth),config.predicates_per_round)
+
 class ImgLang(Lang):
     class Document:
         def __init__(self,fname,features):
@@ -235,7 +240,7 @@ class ImgLang(Lang):
             return self.feature in doc.features
 
         def __repr__(self):
-            return f"Exists({self.feature})"
+            return f'Exists("{self.feature}")'
 
         def __eq__(self,other):
             return isinstance(other,ImgLang.Exists) and self.feature == other.feature
@@ -488,7 +493,7 @@ class MusicLang(Lang):
         midi_path = os.path.join(cwd, 'tmp.mid')
         pygame.mixer.music.load(midi_path,namehint="midi")
         pygame.mixer.music.play()
-        time.sleep(len(pred))
+        time.sleep(len(pred)+1)
 
     def parse_pred(self,input_str):
         if '[' in input_str:

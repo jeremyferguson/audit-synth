@@ -1,15 +1,14 @@
 import numpy as np
 
-def compute_max_f1_scores(results,thresholds) -> float:
-    #print(list(map(lambda thresh: compute_metrics_synth(results,thresh),thresholds)))
-    f1_scores = list(map(lambda thresh: compute_metrics_synth(results,thresh)[2],thresholds))
+def compute_max_f1_scores(results) -> float:
+    max_num_preds = max([row[3] for row in results])
+    f1_scores = list(map(lambda thresh: compute_metrics_synth(results,thresh)[2],range(max_num_preds+1)))
     return max(f1_scores)
 
 def compute_metrics_synth(results,pred_threshold) -> tuple[int,int,float]:
     expected_vals = [row[1] for row in results]
-    correct_fractions = [0 if row[3] == 0 else float(row[2])/float(row[3]) for row in results]
-    #print(correct_fractions)
-    return compute_metrics(list(zip(expected_vals,correct_fractions)),lambda frac: frac > pred_threshold)
+    correct_preds = [row[2] for row in results]
+    return compute_metrics(list(zip(expected_vals,correct_preds)),lambda frac: frac > pred_threshold)
 
 def compute_metrics_baseline(results):
     return compute_metrics(results,lambda pred: pred)
