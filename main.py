@@ -763,7 +763,7 @@ class App:
                 synth_scores_stds = np.std(synth_scores_preds,axis=0)
                 for i, num_examples in enumerate(self.ablation_params['examples']):
                     params_dict['num_examples'] = num_examples
-                    bins_str = "Bins" if params_dict['use_bins'] else 'No Bins'
+                    bins_str = "Iterative" if params_dict['use_bins'] else 'Direct'
                     mi_str = "Mutual Info" if params_dict['use_mi'] else "No Mutual Info"
                     num_preds = num_rounds*preds_per_round
                     synth_scores.append([num_examples,num_preds,synth_scores_means[i],synth_scores_stds[i],
@@ -787,7 +787,7 @@ class App:
                 for i, (num_rounds, preds_per_round) in enumerate(self.synth_num_pred_iter(self.heuristic_params)):
                     num_preds = num_rounds*preds_per_round
                     synth_scores.append([num_examples,num_preds,synth_scores_means[i],synth_scores_stds[i],
-                                         f"Heuristic, k={num_examples}"])
+                                         f"Predicate selection algorithm, {num_examples} examples"])
             rand_synth_scores_preds = np.array(synth_scores_params['rand'])
             rand_synth_scores_means = np.mean(rand_synth_scores_preds,axis=0)
             rand_synth_scores_stds = np.std(rand_synth_scores_preds,axis=0)

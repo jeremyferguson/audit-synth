@@ -90,10 +90,10 @@ def create_pareto_plot(results,param_dict,param_str,scatterplot=True):
     plt.ylim(0,80)
     plt.legend()
     plt.xlabel('Number of Examples')
-    plt.ylabel(f'Programmer Decisions')
+    plt.ylabel(f'Decisions')
     bins_str = "bins" if param_dict['use_bins'] else "no bins"
     mi_str = f"mutual info with {param_dict['mi_pool']}k preds" if param_dict['use_mi'] else "no mutual info"
-    plt.title(f"Programmer Decisions vs Number of Examples ")
+    plt.title(f"Decisions vs Number of Examples ")
     plt.grid(True)
     plt.savefig(f"{param_str}_pareto.png")
     plt.clf()
@@ -157,10 +157,10 @@ def create_highk_plot(results,param_dict,param_str,scatterplot=True):
     plt.ylim(0,35)
     #plt.legend()
     plt.xlabel('Number of Examples',fontdict={'size':ax_size})
-    plt.ylabel(f'Programmer Decisions',fontdict={'size':ax_size})
+    plt.ylabel(f'Decisions',fontdict={'size':ax_size})
     bins_str = "bins" if param_dict['use_bins'] else "no bins"
     mi_str = f"mutual info with {param_dict['mi_pool']}k preds" if param_dict['use_mi'] else "no mutual info"
-    plt.title(f"Programmer Decisions vs Number of Examples ",fontdict={'size':title_size})
+    plt.title(f"Decisions vs Number of Examples ",fontdict={'size':title_size})
     plt.grid(True)
     plt.savefig(f"{param_str}_pareto.png")
     plt.clf()
@@ -188,7 +188,7 @@ def make_baseline_plots(baseline_scores,synth_scores:pd.DataFrame,params_dict,fn
     merged_df = pd.merge(synth_scores, baseline_scores, on='num_examples', how='left')
     merged_df['f1'] = merged_df['f1'].fillna(max_baseline_score)
     for i, (num_preds, score_group) in enumerate(grouped):
-        sns.lineplot(data=score_group,x="num_examples",y="f1_mean",color=colors[i%4],label=f"Synthesis with {num_preds} User Decisions",linewidth=lwidth)
+        sns.lineplot(data=score_group,x="num_examples",y="f1_mean",color=colors[i%4],label=f"Synthesis with {num_preds} Decisions",linewidth=lwidth)
         plt.errorbar(data=score_group,x="num_examples",y="f1_mean",yerr="f1_std",fmt=colors[i%4],label='_',linewidth=lwidth)
     sns.lineplot(data=merged_df,x='num_examples',y='f1', label='Baseline',color='r',linewidth=lwidth)
     labels.append('Baseline')
@@ -198,7 +198,7 @@ def make_baseline_plots(baseline_scores,synth_scores:pd.DataFrame,params_dict,fn
     plt.xticks(range(0,32,5),font={'size':tick_size})
     plt.title(f"Synthesis Performance vs Baseline",fontdict={'size':title_size})
     plt.legend(loc = 'lower right',fontsize=34)
-    plt.ylabel('Max F1 Score',fontdict={'size':ax_size})
+    plt.ylabel('F1 Score',fontdict={'size':ax_size})
     plt.xlabel('Number of Examples',fontdict={'size':ax_size})
     plt.savefig(fname)
     plt.close()
@@ -218,7 +218,7 @@ def make_ablation_plots(synth_scores:pd.DataFrame,fname):
     plt.xticks(range(0,22,2),font={'size':tick_size})
     plt.title(f"Synthesis Performance for Ablated Parameters",fontdict={'size':title_size},y=1.04)
     plt.legend(loc = 'lower right',fontsize=tick_size)
-    plt.ylabel('Max F1 Score',fontdict={'size':ax_size})
+    plt.ylabel('F1 Score',fontdict={'size':ax_size})
     plt.xlabel('Number of Examples',fontdict={'size':ax_size})
     #plt.tight_layout()
     plt.savefig(fname)
@@ -237,14 +237,13 @@ def make_performance_plot(results:pd.DataFrame,fname,xs):
     plt.ylabel('Execution Time (seconds)',fontdict={'size':ax_size})
     plt.xlabel('Program Size (# of predicates)',fontdict={'size':ax_size})
     plt.xticks(range(0,25,5),font={'size':tick_size})
-    plt.yticks(np.linspace(1.5,3.0,4),font={'size':tick_size})
+    plt.yticks(np.linspace(1.5,4.0,6),font={'size':tick_size})
     plt.savefig(fname)
     plt.close()
     
 def make_heuristic_plots(synth_scores:pd.DataFrame,fname):
     plt.figure(figsize=(22,12))
     runs = synth_scores.groupby('label')
-    labels = []
     colors = ['blue','blueviolet','red','limegreen']
     for i, (label, run) in enumerate(runs):
         sns.lineplot(data=run,x="num_preds",y="f1_mean",color=colors[i%4],label=label)
@@ -254,9 +253,9 @@ def make_heuristic_plots(synth_scores:pd.DataFrame,fname):
     plt.yticks(np.linspace(0.0,1.0,5),font={'size':tick_size})
     plt.xticks(range(0,110,10),font={'size':tick_size})
     plt.title(f"Synthesized Program Performance, by Predicate Selection Approach",fontdict={'size':title_size},y=1.04)
-    plt.legend(loc =(0,0.15),fontsize=34)
-    plt.ylabel('Max F1 Score',fontdict={'size':ax_size})
-    plt.xlabel('Number of User Decisions',fontdict={'size':ax_size})
+    plt.legend(loc =(0,0.15),fontsize=30)
+    plt.ylabel('F1 Score',fontdict={'size':ax_size})
+    plt.xlabel('Number of Decisions',fontdict={'size':ax_size})
     plt.savefig(fname)
     plt.close()
 
