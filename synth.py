@@ -11,7 +11,7 @@ class RunConfig:
     def __init__(self, low_threshold=0.2, high_threshold=0.8, features_fname="features.json", full_csv=None,
                  num_feature_selection_rounds=5, features_combine_count=5,depth=0,mutual_info_pool_size=2,output_threshold=0.5,
                  predicates_per_round=5, use_mutual_information=False,manual=False,use_bins = False, eval = False, debug=False,
-                 prog_fname="program.txt",num_examples=10,examples=None,lang:Lang=None,task="image"):
+                 prog_fname="program.txt",num_examples=10,examples=None,lang:Lang=None,task="image",heuristic="freq"):
         # Validate thresholds
         assert 0 <= low_threshold <= 1, "Low threshold must be between 0 and 1."
         assert 0 <= high_threshold <= 1, "High threshold must be between 0 and 1."
@@ -36,7 +36,8 @@ class RunConfig:
         self.num_examples=num_examples
         self.examples=examples
         self.lang = lang or ImgLang() if task == "image" else MusicLang()
-
+        self.heuristic = self.lang.freq_heuristic if heuristic == "freq" else self.lang.rand_heuristic
+        
     @classmethod
     def from_yaml(cls, filename):
         with open(filename, 'r') as file:
@@ -94,7 +95,7 @@ class Runner:
             print(ref_preds)
         rejected_preds = []
         for _ in range(self.config.num_feature_selection_rounds):
-            new_preds = self.lang.freq_heuristic(self.prog,self.docs,self.all_features,self.user_examples,rejected_preds,self.config)
+            new_preds = self.config.heuristic(self.prog,self.docs,self.all_features,self.user_examples,rejected_preds,self.config)
             for pred in new_preds:
                 if pred in ref_preds:
                     self.prog.add_pred(pred)
@@ -105,7 +106,7 @@ class Runner:
         rejected_preds = []
         prog_complete = user_input_yn(f"Current program is: \n{self.prog}\nAre you satisfied with this?",default = False)
         while not prog_complete:
-            new_preds = self.lang.freq_heuristic(self.prog,self.docs,self.all_features,self.user_examples,rejected_preds,self.config)
+            new_preds = self.config.heuristic(self.prog,self.docs,self.all_features,self.user_examples,rejected_preds,self.config)
             print("New predicates generated: ")
             for pred in new_preds:
                 self.lang.displayPred(pred)

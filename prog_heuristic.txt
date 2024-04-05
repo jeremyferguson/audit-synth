@@ -1,0 +1,3 @@
+set pp num_samples 50
+#compute heuristic
+plot heuristic

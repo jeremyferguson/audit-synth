@@ -13,9 +13,9 @@ PROJECT_ID = 'psde'
 # Set your Google Cloud Storage bucket name
 BUCKET_NAME = 'coco_images_psde'
 
-features_fname = "../extracted_features_detr.json"
+features_fname = "../jsons/extracted_features_detr.json"
 labels_fname = "partial_labeled_sports.csv"
-out_fname = "predicted_labels_gemini.csv"
+out_fname = "predicted_labels_gemini_0_1_3_8_12.csv"
 
 # Load your JSON file containing image features
 def load_features():
@@ -104,16 +104,20 @@ def make_few_shot_prompt_gpt(dataset,labels,predict_fname,k):
 def run_predictions(model,dataset,labels):
     predictions = pd.DataFrame(columns = ['fname','val','k'])
     # Iterate over images in the dataset
-    for k in [0,1,5,10,15]:
+    for k in [1,3,8,12]:
         i = 0
         for fname in dataset:
             i += 1
-            if i > 500:
-                break
+            if i % 10 == 0:
+                print(i)
+            if i % 50 == 0:
+                predictions.to_csv(out_fname)
             prompt = make_few_shot_prompt_gemini(dataset,labels,fname,k)
-            print(prompt)
             model_response = model(prompt)
-            label = model_response.candidates[0].content.parts[0].text.strip()
+            try:
+                label = model_response.candidates[0].content.parts[0].text.strip()
+            except:
+                print(model_response)
             if label == "sports":
                 predictions = predictions._append({'fname':fname,'val':True,'k':k},ignore_index=True)
             elif label == "not sports":
