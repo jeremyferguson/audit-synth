@@ -380,7 +380,7 @@ def make_performance_plot(results: pd.DataFrame, fname, xs):
     plt.figure(figsize=FIGSIZE)
     means = [results[results["prog_length"] == x].iloc[0]["time_mean"] for x in xs]
     stds = [results[results["prog_length"] == x].iloc[0]["time_std"] for x in xs]
-    plt.xlim(min(xs), max(xs))
+    plt.xlim(min(xs), max(xs) + 1)
     # sns.lineplot(x=xs, y=means, linewidth=LINEWIDTH, color="b")
     plt.errorbar(
         x=xs,
@@ -439,7 +439,7 @@ def make_heuristic_plots(synth_scores: pd.DataFrame, fname):
             linewidth=LINEWIDTH,
         )
     plt.ylim(0, 1)
-    plt.xlim(0, 101)
+    plt.xlim(0, 105)
     plt.yticks(
         np.linspace(0.0, 1.0, 5),
         font={"size": tick_size},

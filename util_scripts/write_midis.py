@@ -1,12 +1,12 @@
-from music21 import harmony
+# from music21 import harmony
 
-import pretty_midi
+# import pretty_midi
 import os
 
 #adding unsupported chords to the harmony dictionary. probably a very unstable way to do this.
-harmony.CHORD_TYPES['minor fourth'] = ['1,-3,4',['m4']]
-harmony.CHORD_TYPES['major fourth'] = ['1,3,4',['M4']]
-harmony.CHORD_TYPES['diminished sixth'] = ['1,-3,-5,6',['dim6']]
+#harmony.CHORD_TYPES['minor fourth'] = ['1,-3,4',['m4']]
+#harmony.CHORD_TYPES['major fourth'] = ['1,3,4',['M4']]
+#harmony.CHORD_TYPES['diminished sixth'] = ['1,-3,-5,6',['dim6']]
 def parseChord(chord):
     def parseRootNote(chord):
         match chord[1]:

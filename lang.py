@@ -3,13 +3,13 @@ from queue import PriorityQueue
 import numpy as np
 from util_scripts.write_midis import create_midi
 import os
-import pygame
+#import pygame
 import random
 import time
 
 
-pygame.init()
-pygame.mixer.init(frequency=44100, size=-16, channels=1)
+#pygame.init()
+#pygame.mixer.init(frequency=44100, size=-16, channels=1)
 
 class Lang:
     def __init__(self):

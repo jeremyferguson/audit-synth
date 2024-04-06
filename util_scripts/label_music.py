@@ -1,10 +1,10 @@
 import os
 from tkinter import Tk, Label
-import pygame
+#import pygame
 
 
-pygame.init()
-pygame.mixer.init(frequency=44100, size=-16, channels=1)
+#pygame.init()
+#pygame.mixer.init(frequency=44100, size=-16, channels=1)
 
 class SongSorter:
     def __init__(self, root):
