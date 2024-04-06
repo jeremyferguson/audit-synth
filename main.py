@@ -1204,7 +1204,7 @@ class App:
                         ]
                     )
             baseline_fname = (
-                f"{self.img_dir}/{self.baseline_dir}/{param_str}_baseline.png"
+                f"{self.img_dir}/{self.baseline_dir}/{param_str}_baseline.pdf"
             )
             synth_scores = pd.DataFrame(
                 data=synth_scores,
