@@ -1,11 +1,11 @@
 import pandas as pd
 import matplotlib
-
-matplotlib.use("Agg")
 import numpy as np
 import seaborn as sns
 import matplotlib.pyplot as plt
 import matplotlib.colors as mcolors
+matplotlib.use("Agg")
+
 
 sns.set_theme(style="whitegrid")
 title_size = 50
@@ -20,45 +20,6 @@ MARKERS = ["o", "s", "^", "X"]
 COLORS = list(mcolors.TABLEAU_COLORS)
 LABELPAD = 20
 LINEWIDTH = 3
-
-
-def create_hist(df, params_dict, param_str, style):
-    plt.figure(figsize=(10, 6))
-    predicates_correct = list(df["predicates_correct"])
-    bins = range(min(predicates_correct), max(predicates_correct) + 2)
-    if style == "stacked":
-        sns.histplot(
-            data=df,
-            x="predicates_correct",
-            hue="expected_value",
-            bins=bins,
-            multiple="stack",
-            palette="viridis",
-        )
-    elif style == "facet":
-        g = sns.FacetGrid(df, row="expected_value", height=6, aspect=2)
-        g.map(plt.hist, "predicates_correct", bins=bins, color="skyblue", alpha=0.7)
-
-        # Customize plot
-        g.set_axis_labels("Predicates Correct", "Frequency")
-        g.set_titles(row_template="Ground Truth: {row_name}")
-    else:
-        raise ValueError(f"Invalid histogram style: {style}")
-    bins_str = "bins" if params_dict["use_bins"] else "no bins"
-    mi_str = (
-        f"mutual info with {params_dict['mi_pool']*params_dict['preds_per_round']} preds"
-        if params_dict["use_mi"]
-        else "no mutual info"
-    )
-    plt.title(
-        f"Histogram for Parameter Combination: Thresholds {params_dict['low']} - {params_dict['high']}, "
-        + f"{params_dict['num_rounds']} x {params_dict['preds_per_round']} preds,{bins_str}, depth {params_dict['depth']}, {mi_str}"
-    )
-    plt.xlabel("Predicates Correct")
-    plt.ylabel("Frequency")
-    plt.legend(title="Expected Value", labels=["False", "True"])
-    plt.savefig(param_str)
-    plt.close()
 
 
 def create_pareto_plot(results, param_dict, param_str, scatterplot=True):
@@ -376,23 +337,27 @@ def make_ablation_plots(synth_scores: pd.DataFrame, fname):
     plt.close()
 
 
-def make_performance_plot(results: pd.DataFrame, fname, xs):
+def make_performance_plot(results: pd.DataFrame, fnames):
     plt.figure(figsize=FIGSIZE)
-    means = [results[results["prog_length"] == x].iloc[0]["time_mean"] for x in xs]
-    stds = [results[results["prog_length"] == x].iloc[0]["time_std"] for x in xs]
-    plt.xlim(min(xs), max(xs) + 1)
+    plt.xlim(min(results["prog_length"])-1,max(results["prog_length"])+1)
     # sns.lineplot(x=xs, y=means, linewidth=LINEWIDTH, color="b")
-    plt.errorbar(
-        x=xs,
-        y=means,
-        yerr=stds,
-        linewidth=LINEWIDTH,
+    # plt.errorbar(
+    #     x=xs,
+    #     y=means,
+    #     yerr=stds,
+    #     linewidth=LINEWIDTH,
+    #     capsize=CAPSIZE,
+    #     color=COLORS[0],
+    #     capthick=CAPTHICK,
+    #     marker="o",
+    #     markersize=MARKERSIZE,
+    # )
+    sns.lineplot(data=results, x='prog_length', y='time', estimator='median', errorbar='se',err_style="bars",linewidth=LINEWIDTH,
         capsize=CAPSIZE,
         color=COLORS[0],
         capthick=CAPTHICK,
         marker="o",
-        markersize=MARKERSIZE,
-    )
+        markersize=MARKERSIZE,)
     # plt.title(f"Execution Time vs Program Size", fontdict={"size": title_size})
     # plt.legend(loc = 'lower right')
     plt.ylabel(

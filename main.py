@@ -778,52 +778,61 @@ class App:
         print(len(synth_progs), len(synth_progs[0]))
         full_results = []
         # Iterate through parameter combinations
-        for params_dict in self.synth_param_iter(self.perf_params):
-            user_examples = set(
-                random.choices(all_example_fnames, k=params_dict["num_examples"])
-            )
-            params_dict["examples"] = user_examples
-            print(params_dict)
-            for prog_length in self.perf_params["prog_size"]:
-                print("Program length: ", prog_length)
-                for num_rounds, predicates_per_round in self.synth_num_pred_iter(
-                    self.perf_params
-                ):
-                    print("Predicates: ", num_rounds * predicates_per_round)
-                    params_dict["num_rounds"] = num_rounds
-                    params_dict["preds_per_round"] = predicates_per_round
-                    for run_no in range(self.pp_params["num_samples"]):
-                        print("Run: ", run_no)
-                        synth_prog = synth_progs[prog_length - 1][run_no]
-                        with open("prog_temp.txt", "w") as f:
-                            f.write("\n".join([str(pred) for pred in synth_prog]))
+        for _ in range(2):
+            full_results = []
+            with open("freq_heuristic.csv", "w") as f:
+                f.write("run_no,prog_len,time,used_bins\n")
+            for params_dict in self.synth_param_iter(self.perf_params):
+                user_examples = set(
+                    random.choices(all_example_fnames, k=params_dict["num_examples"])
+                )
+                params_dict["examples"] = user_examples
+                print(params_dict)
+                for prog_length in self.perf_params["prog_size"]:
+                    print("Program length: ", prog_length)
+                    for num_rounds, predicates_per_round in self.synth_num_pred_iter(
+                        self.perf_params
+                    ):
+                        print("Predicates: ", num_rounds * predicates_per_round)
+                        params_dict["num_rounds"] = num_rounds
+                        params_dict["preds_per_round"] = predicates_per_round
+                        for run_no in range(self.pp_params["num_samples"]):
+                            print("Run: ", run_no)
+                            synth_prog = synth_progs[prog_length][run_no]
+                            with open("prog_exp.txt", "w") as f:
+                                f.write("\n".join([str(pred) for pred in synth_prog]))
 
-                        params_dict["run_no"] = run_no
-                        start = time.perf_counter_ns()
-                        _, prog = self.run_once(params_dict, prog_fname="prog_temp.txt")
-                        success = prog_length == len(prog)
-                        print(success)
-                        end = time.perf_counter_ns()
-                        delta = (end - start) / 1000000000
-                        full_results.append(
-                            [
-                                params_dict["low"],
-                                params_dict["high"],
-                                params_dict["num_rounds"],
-                                params_dict["preds_per_round"],
-                                params_dict["use_bins"],
-                                params_dict["depth"],
-                                params_dict["use_mi"],
-                                params_dict["mi_pool"],
-                                params_dict["num_examples"],
-                                run_no,
-                                delta,
-                                prog_length,
-                            ]
-                        )
-            df = pd.DataFrame(columns=self.perf_csv_header, data=full_results)
-            ind_csv_filename = "perf_results.csv"
-            df.to_csv(f"{self.csv_dir}/{ind_csv_filename}")
+                            params_dict["run_no"] = run_no
+                            start = time.perf_counter_ns()
+
+                            _, prog, final_round = self.run_once(
+                                params_dict, prog_fname="prog_exp.txt"
+                            )
+                            success = prog_length == len(prog)
+                            print(success)
+                            end = time.perf_counter_ns()
+                            delta = (end - start) / 1000000000
+                            print("Total time: ", delta)
+                            full_results.append(
+                                [
+                                    params_dict["low"],
+                                    params_dict["high"],
+                                    params_dict["num_rounds"],
+                                    params_dict["preds_per_round"],
+                                    params_dict["use_bins"],
+                                    params_dict["depth"],
+                                    params_dict["use_mi"],
+                                    params_dict["mi_pool"],
+                                    params_dict["num_examples"],
+                                    run_no,
+                                    delta,
+                                    prog_length,
+                                    final_round,
+                                ]
+                            )
+                df = pd.DataFrame(columns=self.perf_csv_header, data=full_results)
+                ind_csv_filename = "perf_results.csv"
+                df.to_csv(f"{self.csv_dir}/{ind_csv_filename}")
 
     def compute_heuristics(self):
         all_examples = pd.read_csv(self.examples_csv_fname)
@@ -1230,11 +1239,16 @@ class App:
                 )
                 synth_scores_means = np.mean(synth_scores_preds, axis=0)
                 synth_scores_stds = np.std(synth_scores_preds, axis=0)
-                for i, num_examples in enumerate(self.ablation_params["examples"]):
+                for i, num_examples in\
+                        enumerate(self.ablation_params["examples"]):
                     params_dict["num_examples"] = num_examples
-                    bins_str = "Iterative" if params_dict["use_bins"] else "Direct"
+                    bins_str = (
+                        "Iterative" if params_dict["use_bins"] else
+                        "Direct"
+                    )
                     mi_str = (
-                        "Mutual Info" if params_dict["use_mi"] else "No Mutual Info"
+                        "Mutual Info" if params_dict["use_mi"] else
+                        "No Mutual Info"
                     )
                     num_preds = num_rounds * preds_per_round
                     synth_scores.append(
@@ -1275,7 +1289,8 @@ class App:
                             num_preds,
                             synth_scores_means[i],
                             synth_scores_stds[i],
-                            f"Predicate selection algorithm, {num_examples} examples",
+                            f"Predicate selection algorithm, {num_examples}\
+                                examples",
                         ]
                     )
             rand_synth_scores_preds = np.array(synth_scores_params["rand"])
@@ -1291,7 +1306,7 @@ class App:
                         num_preds,
                         rand_synth_scores_means[i],
                         rand_synth_scores_stds[i],
-                        f"Random",
+                        "Random",
                     ]
                 )
         fname = f"{self.img_dir}/{self.heuristic_dir}/heuristic_ablation.png"
@@ -1305,13 +1320,7 @@ class App:
         ind_csv_filename = "perf_results.csv"
         out_fname = f"{self.img_dir}/{self.perf_dir}/performance.png"
         results = pd.read_csv(f"{self.csv_dir}/{ind_csv_filename}")
-        data = []
-        for prog_length, runs in results.groupby("prog_length"):
-            print(runs)
-            data.append([prog_length, np.mean(runs["time"]), np.std(runs["time"])])
-        df = pd.DataFrame(data=data, columns=["prog_length", "time_mean", "time_std"])
-        print(df)
-        make_performance_plot(df, out_fname, self.perf_params["prog_size"])
+        make_performance_plot(results, out_fname)
 
 
 if __name__ == "__main__":
