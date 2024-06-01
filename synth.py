@@ -1,3 +1,4 @@
+import argparse
 import json
 import pandas as pd
 import numpy as np
@@ -31,6 +32,7 @@ class RunConfig:
         lang: Lang = None,
         task="image",
         heuristic="freq",
+        use_not=True
     ):
         # Validate thresholds
         assert 0 <= low_threshold <= 1, "Low threshold must be between 0 and 1."
@@ -63,6 +65,7 @@ class RunConfig:
             if heuristic == "freq"
             else self.lang.rand_heuristic
         )
+        self.use_not = use_not
 
     @classmethod
     def from_yaml(cls, filename):
@@ -133,23 +136,22 @@ class Runner:
                 self.user_examples,
                 rejected_preds,
                 self.config,
-                prog_len=len(ref_preds),
             )
             for pred in new_preds:
                 if pred in ref_preds:
                     self.prog.add_pred(pred)
                 else:
                     rejected_preds.append(pred)
-            if len(self.prog.preds) == len(ref_preds):
+            if len(self.prog.preds) == len(ref_preds) and not self.config.use_not:
                 for pred in ref_preds:
                     if pred not in self.prog:
                         raise Exception("Duplicate")
                 self.final_round = i
                 break
-        if len(self.prog.preds) != len(ref_preds):
+        if len(self.prog.preds) != len(ref_preds) and not self.config.use_not:
             raise Exception("Failure!")
         for pred in ref_preds:
-            if pred not in self.prog:
+            if pred not in self.prog and not self.config.use_not:
                 raise Exception("Duplicate at the end!")
 
     def runManual(self):
@@ -169,7 +171,7 @@ class Runner:
             )
             print("New predicates generated: ")
             for pred in new_preds:
-                self.lang.displayPred(pred)
+                print(pred)
             add_preds = user_input_yn(
                 f"Would you like to add all of these to your program?"
             )
@@ -199,13 +201,16 @@ class Runner:
             )
 
 
-yaml_filename = "config.yml"
+yaml_filename = "config_sports.yml"
 
 if __name__ == "__main__":
+    parser = argparse.ArgumentParser()
+    parser.add_argument("config",default=yaml_filename)
     config = RunConfig.from_yaml(yaml_filename)
     runner = Runner(config)
     prog = runner.run()
     print("Final program: ", prog)
     if config.eval:
         results = runner.eval()
+        print(results)
         print(compute_max_f1_scores(results))

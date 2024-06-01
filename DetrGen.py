@@ -9,9 +9,9 @@ import random
 from torchvision import transforms
 from collections import Counter
 
-features_fname = "extracted_features_detr_500.json"
+features_fname = "extracted_features_intersections_500.json"
 device = "cuda" if torch.cuda.is_available() else "cpu"
-img_dir = "/home/jmfergie/coco_imgs"
+img_dir = "/home/jmfergie/streetview-images_3"
 
 image_processor = AutoImageProcessor.from_pretrained("facebook/detr-resnet-50")
 model = DetrForObjectDetection.from_pretrained("facebook/detr-resnet-50").to(device)
@@ -53,7 +53,7 @@ class Extractor:
         
     def extract(self):
         objects = {}
-        for i in range(0,500,self.batch_size):
+        for i in range(0,len(self.filenames)):
             if i % 100 == 0:
                 print(i)
             fnames = self.filenames[i:i+self.batch_size]

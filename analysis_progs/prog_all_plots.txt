@@ -1,0 +1,32 @@
+set pp num_samples 50
+set highk examples [1,10,20,40,60,80,100,150,200,250,300]
+set synth examples [1,10,20,40,60,80,100,150,200,250,300]
+compute pareto
+plot pareto
+set pp num_samples 10
+set baseline num_rounds [4,8,12]
+set baseline preds_per_round [5]
+compute baseline
+plot baseline
+set pp num_samples 100
+compute perf
+plot perf
+set pp num_samples 50
+compute ablation
+plot ablation
+set pp num_samples 50
+compute heuristic
+plot heuristic
+set task task music
+set task out_dir music
+set task features_fname jsons/bach_features.json
+set task examples_csv_fname labeled_music.csv
+set task full_out_csv_filename synth_results_full.csv
+set task baseline_labels_fname baseline/predicted_labels_gemini_music.csv
+set task prog_fname prog_music_hand_1.txt
+set baseline num_rounds [2,5,10,15]
+set baseline preds_per_round [10]
+set baseline examples ([1]+list(range(5,25,5)))
+set pp num_samples 300
+compute baseline
+plot baseline

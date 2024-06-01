@@ -7,13 +7,12 @@ from synth import Runner, RunConfig
 from utils import *
 import argparse
 import sys
+import os
 import copy
 import json
 from plots import (
     create_pareto_plot,
-    create_hist,
     make_baseline_plots,
-    create_highk_plot,
     make_ablation_plots,
     make_performance_plot,
     make_heuristic_plots,
@@ -31,36 +30,76 @@ class REPLParseError(Exception):
 
 
 class App:
+    @property
+    def task(self):
+        return self.task_params["task"]
+    
+    @task.setter
+    def task(self,task):
+        self.task_params["task"] = task
+
+    @property
+    def features_fname(self):
+        return self.task_params["features_fname"]
+    
+    @features_fname.setter
+    def features_fname(self,features_fname)
+        self.task_params["features_fname"] = features_fname
+
+    @property
+    def examples_csv_fname(self):
+        return self.task_params["examples_csv_fname"]
+    
+    @examples_csv_fname.setter
+    def examples_csv_fname(self,examples_csv_fname)
+        self.task_params["examples_csv_fname"] = examples_csv_fname
+
+    @property
+    def prog_fname(self):
+        return self.task_params["prog_fname"]
+    
+    @prog_fname.setter
+    def prog_fname(self,prog_fname)
+        self.task_params["prog_fname"] = prog_fname
+
+    @property
+    def full_out_csv_filename(self):
+        return self.task_params["full_out_csv_filename"]
+    
+    @full_out_csv_filename.setter
+    def full_out_csv_filename(self,full_out_csv_filename)
+        self.task_params["full_out_csv_filename"] = full_out_csv_filename
+
+    @property
+    def baseline_labels_fname(self):
+        return self.task_params["baseline_labels_fname"]
+    
+    @baseline_labels_fname.setter
+    def baseline_labels_fname(self,baseline_labels_fname)
+        self.task_params["baseline_labels_fname"] = baseline_labels_fname
+    
+
     def __init__(
         self,
-        features_fname="jsons/extracted_features_detr_500.json",
-        examples_csv_fname="partial_labeled_sports.csv",
-        prog_fname="prog_sports.txt",
         manual_value=False,
         eval_value=True,
         debug_value=True,
-        full_out_csv_filename="synth_results_full.csv",
-        baseline_csv_fname="predicted_labels_gemini.csv",
         synth_params=None,
         pp_params=None,
         baseline_params=None,
         pareto_params=None,
-        baseline_plot_fname="baseline",
+        task_params=None,
         ind_csv_header=None,
         full_csv_header=None,
         perf_csv_header=None,
-        input_doc_dir="/home/jmfergie/coco_imgs",
-        baseline_csv_dir="csv_baseline",
-        highk_dir="highk",
+        heuristic_params=None,
         highk_params=None,
         ablation_params=None,
         perf_params=None,
-        task="image",
+        baseline_csv_dir="csv_baseline",
         img_dir="plots",
         heuristic_dir="heuristic",
-        heuristic_params=None,
         ablation_dir="ablation",
-        hist_dir="hists",
         pareto_dir="pareto",
         perf_dir="performance",
         baseline_dir="baseline",
@@ -69,30 +108,17 @@ class App:
         self.manual_value = manual_value
         self.eval_value = eval_value
         self.debug_value = debug_value
-        if task == "image":
-            self.lang: Lang = ImgLang()
-        elif task == "music":
-            self.lang: Lang = MusicLang()
-        else:
-            raise Exception(f"Invalid task: {task}")
-        self.img_dir = img_dir
-        self.hist_dir = hist_dir
-        self.pareto_dir = pareto_dir
-        self.highk_dir = highk_dir
-        self.csv_dir = csv_dir
-        self.baseline_dir = baseline_dir
-        self.baseline_csv_dir = baseline_csv_dir
-        self.input_img_dir = input_doc_dir
-        self.ablation_dir = ablation_dir
-        self.perf_dir = perf_dir
-        self.heuristic_dir = heuristic_dir
-
-        self.baseline_csv_fname = f"{self.baseline_dir}/{baseline_csv_fname}"
-        self.full_out_csv_filename = full_out_csv_filename
-        self.features_fname = features_fname
-        self.examples_csv_fname = examples_csv_fname
-        self.prog_fname = prog_fname
-
+        
+        self.default_task_params = {
+            "out_dir":"sports",
+            "task":"sports",
+            "full_out_csv_filename":"synth_results_full.csv",
+            "baseline_labels_fname":"baseline/predicted_labels_gemini.csv",
+            "features_fname":"jsons/extracted_features_detr_500.json",
+            "examples_csv_fname":"partial_labeled_sports.csv",
+            "prog_fname":"prog_sports.txt"
+        }
+        self.task_params = task_params or self.default_task_params
         self.default_synth_params = {
             "low": [0.1],
             "high": [0.9],
@@ -240,6 +266,30 @@ class App:
             "time",
             "prog_length",
         ]
+        self.img_dir = os.path.join(self.out_dir,img_dir)
+        os.makedirs(self.img_dir,exist_ok=True)
+        self.csv_dir = os.path.join(self.out_dir,csv_dir)
+        os.makedirs(self.csv_dir,exist_ok=True)
+        self.baseline_csv_dir = os.path.join(self.out_dir,baseline_csv_dir)
+        os.makedirs(self.baseline_csv_dir,exist_ok=True)
+
+        self.pareto_dir = pareto_dir
+        os.makedirs(os.path.join(self.img_dir,self.pareto_dir),exist_ok=True)
+        self.baseline_dir = baseline_dir
+        os.makedirs(os.path.join(self.img_dir,self.baseline_dir),exist_ok=True)
+        self.ablation_dir = ablation_dir
+        os.makedirs(os.path.join(self.img_dir,self.ablation_dir),exist_ok=True)
+        self.perf_dir = perf_dir
+        os.makedirs(os.path.join(self.img_dir,self.perf_dir),exist_ok=True)
+        self.heuristic_dir = heuristic_dir
+        os.makedirs(os.path.join(self.img_dir,self.heuristic_dir),exist_ok=True)
+        
+        if self.task == "image":
+            self.lang: Lang = ImgLang()
+        elif self.task == "music":
+            self.lang: Lang = MusicLang()
+        else:
+            raise Exception(f"Invalid task: {self.task}")
 
     def run_once(self, params_dict: dict, prog_fname=None):
         config = RunConfig(
@@ -263,6 +313,9 @@ class App:
             heuristic=params_dict["heuristic"]
             if "heuristic" in params_dict
             else "freq",
+            use_not=params_dict["use_not"]
+            if "use_not" in params_dict
+            else True,
         )
         # Run the app and get evaluation results (results is now an array of tuples)
         runner = Runner(config)
@@ -272,7 +325,7 @@ class App:
 
     def compute_baseline_scores(self) -> list[float]:
         ground_truth_labels = pd.read_csv(self.examples_csv_fname)
-        predicted_labels = pd.read_csv(self.baseline_csv_fname)
+        predicted_labels = pd.read_csv(self.baseline_labels_fname)
         columns = predicted_labels.groupby(["k"])
         f1_scores = []
         for k, column in columns:
@@ -284,8 +337,8 @@ class App:
             ground_vals = merged_df["val_ground"].tolist()
 
             _, _, f1 = compute_metrics_baseline(list(zip(ground_vals, pred_vals)))
-            print(k)
-            f1_scores.append([k, f1])
+            #print(k[0])
+            f1_scores.append([k[0], f1])
         return pd.DataFrame(data=f1_scores, columns=["num_examples", "f1"])
 
     def compute_baseline_synth_scores(self):
@@ -351,7 +404,7 @@ class App:
             for num_rounds, preds_per_round in self.synth_num_pred_iter(
                 self.baseline_params
             ):
-                print(params_dict)
+                #print(params_dict)
                 preds_results: pd.DataFrame = results[
                     (results["predicates_per_round"] == preds_per_round)
                     & (results["num_feature_selection_rounds"] == num_rounds)
@@ -539,86 +592,7 @@ class App:
         pred_size_combinations.sort(key=lambda x: x[0] * x[1])
         return pred_size_combinations
 
-    def run_all(self):
-        all_examples = pd.read_csv(self.examples_csv_fname)
-        all_example_fnames = list(all_examples[all_examples["val"] == True]["fname"])
-        full_results = []
-        # Iterate through parameter combinations
-        for params_dict in self.synth_param_iter(self.synth_params):
-            ind_results = []
-            print(params_dict)
-            for run_no in range(self.pp_params["num_samples"]):
-                print("Run: ", run_no)
-                user_examples = set(
-                    random.choices(all_example_fnames, k=params_dict["num_examples"])
-                )
-                params_dict["examples"] = user_examples
-                params_dict["run_no"] = run_no
-                for num_rounds, predicates_per_round in self.synth_num_pred_iter(
-                    self.synth_params
-                ):
-                    print("Predicates: ", num_rounds * predicates_per_round)
-                    params_dict["num_rounds"] = num_rounds
-                    params_dict["preds_per_round"] = predicates_per_round
-                    results, prog = self.run_once(params_dict)
-                    precision, recall, f1 = compute_metrics_synth(
-                        results, self.pp_params["pred_thresh"]
-                    )
-                    f1_above_thresh = f1 > self.pp_params["f1_thresh"]
-                    full_results.append(
-                        [
-                            params_dict["low"],
-                            params_dict["high"],
-                            params_dict["num_rounds"],
-                            params_dict["preds_per_round"],
-                            params_dict["use_bins"],
-                            params_dict["depth"],
-                            params_dict["use_mi"],
-                            params_dict["mi_pool"],
-                            params_dict["num_examples"],
-                            precision,
-                            recall,
-                            prog,
-                            run_no,
-                            f1,
-                            f1_above_thresh,
-                            user_examples,
-                        ]
-                    )
-                    for result in results:
-                        fname = result[0]
-                        expected_val = result[1]
-                        preds_correct = result[2]
-                        preds_total = result[3]
-                        ind_results.append(
-                            [
-                                params_dict["low"],
-                                params_dict["high"],
-                                params_dict["num_rounds"],
-                                params_dict["preds_per_round"],
-                                params_dict["use_bins"],
-                                params_dict["depth"],
-                                params_dict["use_mi"],
-                                params_dict["mi_pool"],
-                                params_dict["num_examples"],
-                                fname,
-                                expected_val,
-                                preds_correct,
-                                preds_total,
-                                run_no,
-                                prog,
-                            ]
-                        )
-
-                    if f1_above_thresh:
-                        break
-            df = pd.DataFrame(columns=self.ind_csv_header, data=ind_results)
-            df.to_csv(self.ind_csv_fname(params_dict, dir=self.csv_dir))
-        df = pd.DataFrame(columns=self.full_csv_header, data=full_results)
-        df.to_csv(f"{self.csv_dir}/{self.full_out_csv_filename}")
-        print(f"Results written to {self.csv_dir}/{self.full_out_csv_filename}")
-
-    def compute_highk(self):
+    def compute_pareto(self):
         all_examples = pd.read_csv(self.examples_csv_fname)
         all_example_fnames = list(all_examples[all_examples["val"] == True]["fname"])
         full_results = []
@@ -783,6 +757,7 @@ class App:
             with open("freq_heuristic.csv", "w") as f:
                 f.write("run_no,prog_len,time,used_bins\n")
             for params_dict in self.synth_param_iter(self.perf_params):
+                params_dict["use_not"] = False
                 user_examples = set(
                     random.choices(all_example_fnames, k=params_dict["num_examples"])
                 )
@@ -990,6 +965,8 @@ class App:
                     params = self.perf_params
                 case "heuristic":
                     params = self.heuristic_params
+                case "task":
+                    params = self.task_params
                 case _:
                     raise REPLParseError("Invalid context: ", ctx)
             if param not in params:
@@ -999,11 +976,9 @@ class App:
     def parse_compute(self, terms):
         match terms[0]:
             case "pareto":
-                self.run_all()
+                self.compute_pareto()
             case "baseline":
                 self.compute_baseline_synth_scores()
-            case "highk":
-                self.compute_highk()
             case "ablation":
                 self.compute_ablation()
             case "perf":
@@ -1021,8 +996,6 @@ class App:
                 self.plot_pareto()
             case "baseline":
                 self.plot_baseline()
-            case "highk":
-                self.plot_highk()
             case "ablation":
                 self.plot_ablation()
             case "perf":
@@ -1057,7 +1030,7 @@ class App:
 
     def extract_baseline_examples(self, params):
         ground_truth_labels = pd.read_csv(self.examples_csv_fname)
-        predicted_labels = pd.read_csv(self.baseline_csv_fname)
+        predicted_labels = pd.read_csv(self.baseline_labels_fname)
         baseline_k = predicted_labels[
             predicted_labels["k"] == self.baseline_params["baseline_k"]
         ]
@@ -1099,40 +1072,8 @@ class App:
                     ]
                     diff_fnames = diff["fname"].tolist()
                     print(diff)
-                    launch_app(
-                        None,
-                        self.input_doc_dir,
-                        self.features_fname,
-                        "Baseline comparison",
-                        diff_fnames,
-                    )
 
     def plot_pareto(self):
-        full_results = pd.read_csv(f"{self.csv_dir}/{self.full_out_csv_filename}")
-        full_results["num_preds"] = (
-            full_results["num_feature_selection_rounds"]
-            * full_results["predicates_per_round"]
-        )
-        for param_dict in self.param_iter_noex(self.pareto_params):
-            param_results = full_results[
-                (full_results["low_threshold"] == param_dict["low"])
-                & (full_results["high_threshold"] == param_dict["high"])
-                & (full_results["depth"] == param_dict["depth"])
-                & (full_results["use_bins"] == param_dict["use_bins"])
-                & (full_results["use_mutual_information"] == param_dict["use_mi"])
-                & (full_results["mutual_info_pool_size"] == param_dict["mi_pool"])
-            ]
-            param_dict["f1_thresh"] = self.pp_params["f1_thresh"]
-            param_str = self.param_str_noex(param_dict)
-            param_str = f"{self.img_dir}/{self.pareto_dir}/{param_str}_{self.pp_params['f1_thresh']}_{self.pp_params['num_samples']}"
-            create_pareto_plot(
-                param_results,
-                param_dict,
-                param_str,
-                self.pp_params["pareto_scatterplot"],
-            )
-
-    def plot_highk(self):
         full_results = pd.read_csv(f"{self.csv_dir}/highk_{self.full_out_csv_filename}")
         full_results["num_preds"] = (
             full_results["num_feature_selection_rounds"]
@@ -1150,7 +1091,7 @@ class App:
             param_dict["f1_thresh"] = self.pp_params["f1_thresh"]
             param_str = self.param_str_noex(param_dict)
             param_str = f"{self.img_dir}/{self.highk_dir}/{param_str}_{self.pp_params['f1_thresh']}_{self.pp_params['num_samples']}"
-            create_highk_plot(
+            create_pareto_plot(
                 param_results,
                 param_dict,
                 param_str,
@@ -1200,24 +1141,26 @@ class App:
                 synth_scores_preds = np.array(
                     synth_scores_params[(num_rounds, preds_per_round)]
                 )
+                print(synth_scores_preds.shape)
                 synth_scores_means = np.mean(synth_scores_preds, axis=0)
                 synth_scores_stds = np.std(synth_scores_preds, axis=0)
-                for i, num_examples in enumerate(self.baseline_params["examples"]):
-                    params_dict["num_examples"] = num_examples
-                    synth_scores.append(
-                        [
-                            num_examples,
-                            num_rounds * preds_per_round,
-                            synth_scores_means[i],
-                            synth_scores_stds[i],
-                        ]
-                    )
+                for j in range(synth_scores_preds.shape[0]):
+                    for i, num_examples in enumerate(self.baseline_params["examples"]):
+                        #params_dict["num_examples"] = num_examples
+                        synth_scores.append(
+                            [
+                                j,
+                                num_examples,
+                                f"Synthesis with {num_rounds * preds_per_round} decisions",
+                                synth_scores_preds[j,i]
+                            ]
+                        )
             baseline_fname = (
                 f"{self.img_dir}/{self.baseline_dir}/{param_str}_baseline.pdf"
             )
             synth_scores = pd.DataFrame(
                 data=synth_scores,
-                columns=["num_examples", "num_preds", "f1_mean", "f1_std"],
+                columns=["run_no","num_examples", "num_preds", "f1"],
             )
             # synth_scores = pd.DataFrame(data=[],columns = ['num_examples','num_preds','f1_mean','f1_std'])
         make_baseline_plots(baseline_scores, synth_scores, params_dict, baseline_fname)
@@ -1237,33 +1180,26 @@ class App:
                 synth_scores_preds = np.array(
                     synth_scores_params[(num_rounds, preds_per_round)]
                 )
-                synth_scores_means = np.mean(synth_scores_preds, axis=0)
-                synth_scores_stds = np.std(synth_scores_preds, axis=0)
-                for i, num_examples in\
-                        enumerate(self.ablation_params["examples"]):
-                    params_dict["num_examples"] = num_examples
-                    bins_str = (
-                        "Iterative" if params_dict["use_bins"] else
-                        "Direct"
-                    )
-                    mi_str = (
-                        "Mutual Info" if params_dict["use_mi"] else
-                        "No Mutual Info"
-                    )
-                    num_preds = num_rounds * preds_per_round
-                    synth_scores.append(
-                        [
-                            num_examples,
-                            num_preds,
-                            synth_scores_means[i],
-                            synth_scores_stds[i],
-                            f"{bins_str}, {mi_str}",
-                        ]
-                    )
-        ablation_fname = f"{self.img_dir}/{self.ablation_dir}/ablation.png"
+                for j in range(synth_scores_preds.shape[0]):
+                    for i, num_examples in enumerate(self.ablation_params["examples"]):
+                        params_dict["num_examples"] = num_examples
+                        bins_str = "Iterative" if params_dict["use_bins"] else "Direct"
+                        mi_str = (
+                            "Mutual Info" if params_dict["use_mi"] else "No Mutual Info"
+                        )
+                        num_preds = num_rounds * preds_per_round
+                        synth_scores.append(
+                            [
+                                num_examples,
+                                num_preds,
+                                synth_scores_preds[j,i],
+                                f"{bins_str}, {mi_str}",
+                            ]
+                        )
+        ablation_fname = f"{self.img_dir}/{self.ablation_dir}/ablation.pdf"
         synth_scores = pd.DataFrame(
             data=synth_scores,
-            columns=["num_examples", "num_preds", "f1_mean", "f1_std", "label"],
+            columns=["num_examples", "num_preds", "f1", "label"],
         )
         make_ablation_plots(synth_scores, ablation_fname)
 
@@ -1279,46 +1215,43 @@ class App:
                 synth_scores_preds = np.array(synth_scores_params[num_examples])
                 synth_scores_means = np.mean(synth_scores_preds, axis=0)
                 synth_scores_stds = np.std(synth_scores_preds, axis=0)
+                for j in range(synth_scores_preds.shape[0]):
+                    for i, (num_rounds, preds_per_round) in enumerate(
+                        self.synth_num_pred_iter(self.heuristic_params)
+                    ):
+                        num_preds = num_rounds * preds_per_round
+                        synth_scores.append(
+                            [
+                                num_examples,
+                                num_preds,
+                                synth_scores_preds[j,i],
+                                f"Predicate selection algorithm, {num_examples} examples",
+                            ]
+                        )
+            rand_synth_scores_preds = np.array(synth_scores_params["rand"])
+            for j in range(rand_synth_scores_preds.shape[0]):
                 for i, (num_rounds, preds_per_round) in enumerate(
                     self.synth_num_pred_iter(self.heuristic_params)
                 ):
                     num_preds = num_rounds * preds_per_round
                     synth_scores.append(
                         [
-                            num_examples,
+                            1,
                             num_preds,
-                            synth_scores_means[i],
-                            synth_scores_stds[i],
-                            f"Predicate selection algorithm, {num_examples}\
-                                examples",
+                            rand_synth_scores_preds[j,i],
+                            "Random",
                         ]
                     )
-            rand_synth_scores_preds = np.array(synth_scores_params["rand"])
-            rand_synth_scores_means = np.mean(rand_synth_scores_preds, axis=0)
-            rand_synth_scores_stds = np.std(rand_synth_scores_preds, axis=0)
-            for i, (num_rounds, preds_per_round) in enumerate(
-                self.synth_num_pred_iter(self.heuristic_params)
-            ):
-                num_preds = num_rounds * preds_per_round
-                synth_scores.append(
-                    [
-                        1,
-                        num_preds,
-                        rand_synth_scores_means[i],
-                        rand_synth_scores_stds[i],
-                        "Random",
-                    ]
-                )
-        fname = f"{self.img_dir}/{self.heuristic_dir}/heuristic_ablation.png"
+        fname = f"{self.img_dir}/{self.heuristic_dir}/heuristic_ablation.pdf"
         synth_scores = pd.DataFrame(
             data=synth_scores,
-            columns=["num_examples", "num_preds", "f1_mean", "f1_std", "label"],
+            columns=["num_examples", "num_preds", "f1", "label"],
         )
         make_heuristic_plots(synth_scores, fname)
 
     def plot_performance(self):
         ind_csv_filename = "perf_results.csv"
-        out_fname = f"{self.img_dir}/{self.perf_dir}/performance.png"
+        out_fname = f"{self.img_dir}/{self.perf_dir}/performance.pdf"
         results = pd.read_csv(f"{self.csv_dir}/{ind_csv_filename}")
         make_performance_plot(results, out_fname)
 
@@ -1329,7 +1262,8 @@ if __name__ == "__main__":
     )
     parser.add_argument("-f", "--fname", required=False)
     args = parser.parse_args()
-    app = App(debug_value=False, task="image")
+    app = App(debug_value=False)
+    app = App()
     if not args.fname:
         app.run_repl()
     else:

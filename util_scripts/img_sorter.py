@@ -5,9 +5,9 @@ from PIL import Image, ImageTk
 class ImageSorter:
     def __init__(self, root):
         self.root = root
-        self.image_dir = "/home/jmfergie/coco_imgs"
-        self.yes_dir = "/home/jmfergie/coco_imgs/sports"
-        self.no_dir = "/home/jmfergie/coco_imgs/not_sports"
+        self.image_dir = "/home/jmfergie/streetview-images_3"
+        self.yes_dir = "/home/jmfergie/streetview-images_3/good"
+        self.no_dir = "/home/jmfergie/streetview-images_3/bad"
         self.current_image_idx = 0
         self.images = self.get_image_files()
         

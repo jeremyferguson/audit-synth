@@ -1,7 +1,7 @@
-root_dir = "/home/jmfergie/music/output"
-yes_dir = "/home/jmfergie/music/liked"
-no_dir = "/home/jmfergie/music/disliked"
-out_fname = "full_labeled_music.csv"
+root_dir = "/home/jmfergie/streetview-images_3"
+yes_dir = "/home/jmfergie/streetview-images_3/good"
+no_dir = "/home/jmfergie/streetview-images_3/bad"
+out_fname = "full_labeled_intersection.csv"
 import os
 import pandas as pd
 

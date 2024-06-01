@@ -3,14 +3,16 @@ from queue import PriorityQueue
 import numpy as np
 from util_scripts.write_midis import create_midi
 import os
+import re
 
-# import pygame
+
 import random
 import time
 
-
-pygame.init()
-pygame.mixer.init(frequency=44100, size=-16, channels=1)
+if os.environ["RUN_MUSIC_TASK"] == 1:
+    import pygame
+    pygame.init()
+    pygame.mixer.init(frequency=44100, size=-16, channels=1)
 
 
 class Lang:
@@ -89,7 +91,7 @@ class Lang:
             mi = p_AB * np.log2(p_AB / (p_A * p_B))
             return mi
 
-    def filter_topk(self, k, topk, docs):
+    def filter_topk(self, k, topk, docs,use_not=True):
         combined_pred = None
         top_preds = []
         all_preds = set()
@@ -97,7 +99,7 @@ class Lang:
         while not topk.empty():
             item_i = topk.get()
             i += 1
-            if item_i[3] < 0:
+            if item_i[3] < 0 and use_not:
                 all_preds.add(self.Not(item_i[2]))
             else:
                 all_preds.add(item_i[2])
@@ -220,14 +222,14 @@ class Lang:
                 topk.put(to_push)
 
         if config.use_mutual_information and len(top_docs) > 0:
-            return self.filter_topk(config.predicates_per_round, topk, docs)
+            return self.filter_topk(config.predicates_per_round, topk, docs, config.use_not)
         else:
             preds = []
             while not topk.empty():
                 item_i = topk.get()
                 if config.debug:
                     print(item_i)
-                if item_i[3] < 0:
+                if item_i[3] < 0 and config.use_not:
                     preds.append(self.Not(item_i[2]))
                 else:
                     preds.append(item_i[2])
@@ -416,9 +418,9 @@ class ImgLang(Lang):
                                 pred = ImgLang.AndPred(
                                     ImgLang.Exists(f1), ImgLang.Exists(f2)
                                 )
-                                invPred = ImgLang.AndPred(
+                                invPred = ImgLang.Not(ImgLang.AndPred(
                                     ImgLang.Exists(f2), ImgLang.Exists(f1)
-                                )
+                                ))
                                 if pred not in levelPreds and\
                                         invPred not in levelPreds:
                                     levelPreds.add(pred)
@@ -473,9 +475,23 @@ class MusicLang(Lang):
         def eval(self, doc):
             pass
 
+    class BasePred:
+
+        def __init__(self,seq_len):
+            self.seq_len = seq_len
+
+        def evalAt(self, doc, i):
+            if i < 0 or i >= len(doc.features) - self.seq_len:
+                return False
+            return self.matches(doc,i)
+    
+        def matches(self,doc,i):
+            pass
+
     class Not(Pred):
         def __init__(self, pred):
             self.pred = pred
+            self.preds = self.pred.preds
 
         def eval(self, doc):
             return not self.pred.eval(doc)
@@ -515,11 +531,12 @@ class MusicLang(Lang):
         def __hash__(self):
             return hash(("Or", self.pred1, self.pred2))
 
-    class Stepwise(Pred):
+    class Stepwise(BasePred):
         def __repr__(self):
             return f"Stepwise({self.difference})"
 
         def __init__(self, difference):
+            super().__init__(2)
             self.difference = difference
             match self.difference:
                 case 1:
@@ -531,91 +548,215 @@ class MusicLang(Lang):
                 case 10:
                     self.chords = ["C_M", "D_M"]
 
-        def eval(self, doc):
-            for i in range(len(doc.features) - 1):
-                diff = doc.features[i + 1] - doc.features[i]
-                if diff == self.difference:
-                    return True
-            return False
+        def matches(self, doc, i):
+            return doc.features[i + 1] - doc.features[i] == self.difference
+        
+        def __hash__(self):
+            return hash(f"Stepwise({self.difference})")
+        
+        def __eq__(self,other):
+            return isinstance(other,MusicLang.Stepwise) and other.difference == self.difference
+        
 
-    class BasicAuthenticCadence(Pred):
+    class BasicAuthenticCadence(BasePred):
         def __repr__(self):
             return "Authentic Cadence"
 
+        def __init__(self):
+            super().__init__(3)
+
         chords = ["F_M", "G_M", "C_M"]
 
-        def eval(self, doc):
-            for i in range(len(doc.features) - 2):
-                diff1 = doc.features[i + 1] - doc.features[i]
-                diff2 = doc.features[i + 2] - doc.features[i + 1]
-                if (
-                    (diff1 == 2 or diff1 == 5)
-                    and doc.features[i + 1].quality == "M"
-                    and diff2 == 7
-                    and doc.features[i + 2].quality == "M"
-                ):
-                    return True
-            return False
+        def matches(self, doc, i):
+            diff1 = doc.features[i + 1] - doc.features[i]
+            diff2 = doc.features[i + 2] - doc.features[i + 1]
+            return (diff1 == 2 or diff1 == 5) and doc.features[i + 1].quality == "M" and diff2 == 7 and doc.features[i + 2].quality == "M"
 
-    class PlagalMotion(Pred):
+        def __hash__(self):
+            return hash("AuthenticCadence")
+        
+        def __eq__(self,other):
+            return isinstance(other,MusicLang.BasicAuthenticCadence)
+        
+    class PlagalMotion(BasePred):
         def __repr__(self):
             return "Plagal"
 
         chords = ["F_M", "C_M"]
 
-        def eval(self, doc):
-            for i in range(len(doc.features) - 1):
-                if (doc.features[i + 1] - doc.features[i]) == 5:
-                    return True
-            return False
+        def __init__(self):
+            super().__init__(2)
 
-    class MinorPlagalMotion(Pred):
+        def matches(self, doc,i):
+            return (doc.features[i + 1] - doc.features[i]) == 5
+        
+        def __hash__(self):
+            return hash("Plagal")
+        
+        def __eq__(self,other):
+            return isinstance(other,MusicLang.PlagalMotion)
+
+    class MinorPlagalMotion(BasePred):
         def __repr__(self):
             return "Minor Plagal"
 
         chords = ["F_m", "C_M"]
+        
+        def __init__(self):
+            super().__init__(2)
 
-        def eval(self, doc):
-            for i in range(len(doc.features) - 1):
-                if (
-                    (doc.features[i + 1] - doc.features[i]) == 5
-                    and doc.features[i].quality == "m"
-                    and doc.features[i + 1].quality == "M"
-                ):
-                    return True
-            return False
+        def matches(self, doc, i):
+            return (
+                (doc.features[i + 1] - doc.features[i]) == 5
+                and doc.features[i].quality == "m"
+                and doc.features[i + 1].quality == "M"
+            )
 
-    class Galant(Pred):
+        def __hash__(self):
+            return hash("MinorPlagal")
+        
+        def __eq__(self,other):
+            return isinstance(other,MusicLang.MinorPlagalMotion)
+        
+    class Galant(BasePred):
         def __repr__(self):
             return "Galant"
 
         chords = ["C_M", "G_M", "A_m", "E_m", "F_M", "C_M"]
+        
+        def __init__(self):
+            super().__init__(6)
 
-        def eval(self, doc):
+        def matches(self, doc,i):
             jumps_expected = [7, 2, 7, 1, 7]
             qualities_expected = ["M", "M", "m", "m", "M", "M"]
-            for i in range(len(doc.features) - 5):
-                jumps_actual = [
-                    doc.features[j] - doc.features[j - 1] for j in range(i + 1, i + 6)
-                ]
-                qualities_actual = [doc.features[j].quality for j in range(i, i + 6)]
-                if (
+            jumps_actual = [
+                doc.features[j] - doc.features[j - 1] for j in range(i + 1, i + 6)
+            ]
+            qualities_actual = [doc.features[j].quality for j in range(i, i + 6)]
+            return (
                     jumps_actual == jumps_expected
                     and qualities_actual == qualities_expected
-                ):
+                )
+        
+        def __hash__(self):
+            return hash("Galant")
+        
+        def __eq__(self,other):
+            return isinstance(other,MusicLang.Galant)
+        
+    class SeqEventually(Pred):
+        def __init__(self,preds):
+            self.preds = preds
+
+        def __len__(self):
+            return len(self.pred)
+        def __repr__(self):
+            return f"SeqEventually({self.preds})"
+        
+        def eval(self,doc):
+            current_pred_index = 0
+            for i in range(len(doc.features)):
+                if self.preds[current_pred_index].evalAt(doc,i):
+                    current_pred_index += 1
+                if current_pred_index >= len(self.preds):
                     return True
             return False
+        
+        def __hash__(self):
+            hashes = []
+            for pred in self.preds:
+                hashes.append(hash(pred))
+            return hash(f"Eventually{''.join([str(h) for h in hashes])}")
+        
+        def __eq__(self,other):
+            return isinstance(other,MusicLang.SeqEventually) and other.preds == self.preds
+        
+        def __len__(self):
+            return len(self.preds)
 
-    def displayPred(self, pred):
-        print(pred)
+    class SeqUnordered(Pred):
+        def __init__(self,preds):
+            self.preds = preds
+
+        def __repr__(self):
+            return f"SeqUnordered({self.preds})"
+
+        def eval(self,doc):
+            preds_to_find = self.preds[:]
+            for i in range(len(doc.features)):
+                for pred in preds_to_find:
+                    if pred.evalAt(doc,i):
+                        preds_to_find.remove(pred)
+                        continue
+                if not preds_to_find:
+                    return True
+            return False
+        
+        def __hash__(self):
+            hashes = []
+            for pred in self.preds:
+                hashes.append(hash(pred))
+            hashes.sort()
+            h = hash(f"Unordered{''.join([str(h) for h in hashes])}")
+            return h
+        
+        def __eq__(self,other):
+            if not isinstance(other,MusicLang.SeqUnordered):
+                return True
+            from collections import Counter
+            self_occurrences = Counter(self.preds)
+            other_occurrences = Counter(other.preds)
+            return self_occurrences == other_occurrences
+        
+        def __len__(self):
+            return len(self.preds)
+
+    class SeqNearby(Pred):
+        def __init__(self,preds):
+            self.preds = preds
+
+        def __repr__(self):
+            return f"SeqNearby({self.preds})"
+
+        def eval(self,doc):
+            for i in range(len(doc.features)-20):
+                current_pred_index=0
+                for j in range(i,i+20):
+                    if self.preds[current_pred_index].evalAt(doc,j):
+                        current_pred_index+=1
+                    if current_pred_index >= len(self.preds):
+                        return True
+            return False
+    
+        def __hash__(self):
+            hashes = []
+            for pred in self.preds:
+                hashes.append(hash(pred))
+            return hash(f"Nearby{''.join([str(h) for h in hashes])}")
+
+        def __eq__(self,other):
+            return isinstance(other,MusicLang.SeqNearby) and self.preds == other.preds
+        
+        def __len__(self):
+            return len(self.preds)
+        
+    def playPred(self, pred):
+        #print(pred)
         cwd = os.getcwd()
         create_midi(pred.chords, "tmp", cwd)
         midi_path = os.path.join(cwd, "tmp.mid")
         pygame.mixer.music.load(midi_path, namehint="midi")
         pygame.mixer.music.play()
-        time.sleep(len(pred.chords) + 1)
+        time.sleep(len(pred.chords)*0.5 + 0.5)
+    
+    def displayPred(self,pred):
+        print(pred)
+        for basePred in pred.preds:
+            self.playPred(basePred)
+            time.sleep(0.5)
 
-    def parse_pred(self, input_str):
+    def parse_base_pred(self, input_str):
         match input_str:
             case "PlagalMotion":
                 return MusicLang.PlagalMotion()
@@ -631,10 +772,53 @@ class MusicLang(Lang):
                 else:
                     raise ValueError(f"Invalid input string: {input_str}")
 
-    def predGen(self, _, _1, _2, prog_len=None):
-        return [
-            MusicLang.Galant(),
-            MusicLang.MinorPlagalMotion(),
-            MusicLang.PlagalMotion(),
-            MusicLang.BasicAuthenticCadence(),
-        ] + [MusicLang.Stepwise(i) for i in [1, 2, 10, 11]]
+    def parse_pred(self,input_str):
+        unordered_pat = r"SeqUnordered\((\S+)\)"
+        eventually_pat = r"SeqEventually\((\S+)\)"
+        nearby_pat = r"SeqNearby\((\S+)\)"
+        not_pat = r"Not\((\S+)\)"
+        match = re.match(unordered_pat,input_str)
+        if match:
+            return MusicLang.SeqUnordered([self.parse_base_pred(pred) for pred in match.group(1).split(",")])
+        match = re.match(eventually_pat,input_str)
+        if match:
+            return MusicLang.SeqEventually([self.parse_base_pred(pred) for pred in match.group(1).split(",")])
+        match = re.match(nearby_pat,input_str)
+        if match:
+            return MusicLang.SeqNearby([self.parse_base_pred(pred) for pred in match.group(1).split(",")])
+        match = re.match(not_pat,input_str)
+        if match:
+            return MusicLang.Not(self.parse_pred(match.group(1)))
+
+    def predGen(self, doc, features, depth, prog_len=None):
+        def genPredsLevel(depth):
+            if depth in self.preds:
+                return self.preds[depth]
+            elif depth == 0:
+                levelPreds = [MusicLang.SeqUnordered([pred]) for pred in
+                [
+                    MusicLang.Galant(),
+                    MusicLang.MinorPlagalMotion(),
+                    MusicLang.PlagalMotion(),
+                    MusicLang.BasicAuthenticCadence(),
+                ] + [MusicLang.Stepwise(i) for i in [1, 2, 10, 11]]]
+                self.preds[0] = levelPreds
+                return levelPreds
+            else:
+                basePreds = genPredsLevel(0)
+                n_1_preds = genPredsLevel(depth-1)
+                levelPreds = set()
+                for pred1 in n_1_preds:
+                    for pred2 in basePreds:
+                        new_preds = pred1.preds[:] + pred2.preds[:]
+                        levelPreds.add(MusicLang.SeqEventually(new_preds))
+                        levelPreds.add(MusicLang.SeqNearby(new_preds))
+                        levelPreds.add(MusicLang.SeqUnordered(new_preds))
+                levelPreds = list(levelPreds)
+                self.preds[depth] = levelPreds
+                return self.preds[depth]
+        preds = []
+        for d in range(depth+1):
+            preds = preds + genPredsLevel(d)
+        return preds
+        
