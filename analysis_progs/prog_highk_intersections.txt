@@ -1,5 +1,5 @@
 set pp num_samples 50
-set highk examples [1,10,20,40,60,80,100]
+set pareto examples [1,10,20,40,60,80,100]
 set synth examples [1,10,20,40,60,80,100]
-compute highk
-plot highk
+compute pareto
+plot pareto

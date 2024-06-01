@@ -1,0 +1,2 @@
+export RUN_MUSIC_TASK=1
+python synth.py -f config_music.yml

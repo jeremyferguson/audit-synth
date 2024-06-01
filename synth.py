@@ -138,6 +138,7 @@ class Runner:
                 self.config,
             )
             for pred in new_preds:
+                #print(pred)
                 if pred in ref_preds:
                     self.prog.add_pred(pred)
                 else:
@@ -145,10 +146,18 @@ class Runner:
             if len(self.prog.preds) == len(ref_preds) and not self.config.use_not:
                 for pred in ref_preds:
                     if pred not in self.prog:
+                        print("Reference:",ref_preds)
+                        print("Prog",self.prog)
+                        print([hash(pred) for pred in ref_preds])
+                        print([hash(pred) for pred in self.prog.preds])
                         raise Exception("Duplicate")
                 self.final_round = i
                 break
         if len(self.prog.preds) != len(ref_preds) and not self.config.use_not:
+            print("Reference:",ref_preds)
+            print("Prog",self.prog)
+            print([hash(pred) for pred in ref_preds])
+            print([hash(pred) for pred in self.prog.preds])
             raise Exception("Failure!")
         for pred in ref_preds:
             if pred not in self.prog and not self.config.use_not:

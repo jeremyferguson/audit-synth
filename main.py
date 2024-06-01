@@ -31,6 +31,14 @@ class REPLParseError(Exception):
 
 class App:
     @property
+    def out_dir(self):
+        return self.task_params["out_dir"]
+    
+    @out_dir.setter
+    def out_dir(self,out_dir):
+        self.task_params["out_dir"] = out_dir
+
+    @property
     def task(self):
         return self.task_params["task"]
     
@@ -43,7 +51,7 @@ class App:
         return self.task_params["features_fname"]
     
     @features_fname.setter
-    def features_fname(self,features_fname)
+    def features_fname(self,features_fname):
         self.task_params["features_fname"] = features_fname
 
     @property
@@ -51,7 +59,7 @@ class App:
         return self.task_params["examples_csv_fname"]
     
     @examples_csv_fname.setter
-    def examples_csv_fname(self,examples_csv_fname)
+    def examples_csv_fname(self,examples_csv_fname):
         self.task_params["examples_csv_fname"] = examples_csv_fname
 
     @property
@@ -59,7 +67,7 @@ class App:
         return self.task_params["prog_fname"]
     
     @prog_fname.setter
-    def prog_fname(self,prog_fname)
+    def prog_fname(self,prog_fname):
         self.task_params["prog_fname"] = prog_fname
 
     @property
@@ -67,7 +75,7 @@ class App:
         return self.task_params["full_out_csv_filename"]
     
     @full_out_csv_filename.setter
-    def full_out_csv_filename(self,full_out_csv_filename)
+    def full_out_csv_filename(self,full_out_csv_filename):
         self.task_params["full_out_csv_filename"] = full_out_csv_filename
 
     @property
@@ -75,7 +83,7 @@ class App:
         return self.task_params["baseline_labels_fname"]
     
     @baseline_labels_fname.setter
-    def baseline_labels_fname(self,baseline_labels_fname)
+    def baseline_labels_fname(self,baseline_labels_fname):
         self.task_params["baseline_labels_fname"] = baseline_labels_fname
     
 
@@ -83,7 +91,7 @@ class App:
         self,
         manual_value=False,
         eval_value=True,
-        debug_value=True,
+        debug_value=False,
         synth_params=None,
         pp_params=None,
         baseline_params=None,
@@ -93,7 +101,6 @@ class App:
         full_csv_header=None,
         perf_csv_header=None,
         heuristic_params=None,
-        highk_params=None,
         ablation_params=None,
         perf_params=None,
         baseline_csv_dir="csv_baseline",
@@ -111,7 +118,7 @@ class App:
         
         self.default_task_params = {
             "out_dir":"sports",
-            "task":"sports",
+            "task": "image",
             "full_out_csv_filename":"synth_results_full.csv",
             "baseline_labels_fname":"baseline/predicted_labels_gemini.csv",
             "features_fname":"jsons/extracted_features_detr_500.json",
@@ -165,7 +172,7 @@ class App:
             "examples": range(1, 21),
         }
         self.pareto_params = pareto_params or self.default_pareto_params
-        self.default_highk_params = {
+        self.default_pareto_params = {
             "low": [0.1],
             "high": [0.9],
             "bins": [True],
@@ -176,7 +183,7 @@ class App:
             "num_rounds": range(1, 6),
             "preds_per_round": [1, 5, 10, 15, 20, 25, 30],
         }
-        self.highk_params = highk_params or self.default_highk_params
+        self.pareto_params = pareto_params or self.default_pareto_params
         self.default_ablation_params = {
             "low": [0.1],
             "high": [0.9],
@@ -265,31 +272,37 @@ class App:
             "run_number",
             "time",
             "prog_length",
+            "round"
         ]
-        self.img_dir = os.path.join(self.out_dir,img_dir)
-        os.makedirs(self.img_dir,exist_ok=True)
-        self.csv_dir = os.path.join(self.out_dir,csv_dir)
-        os.makedirs(self.csv_dir,exist_ok=True)
-        self.baseline_csv_dir = os.path.join(self.out_dir,baseline_csv_dir)
-        os.makedirs(self.baseline_csv_dir,exist_ok=True)
 
+        self.img_dir = img_dir
+        self.csv_dir = csv_dir
+        self.baseline_csv_dir = baseline_csv_dir
+    
         self.pareto_dir = pareto_dir
-        os.makedirs(os.path.join(self.img_dir,self.pareto_dir),exist_ok=True)
         self.baseline_dir = baseline_dir
-        os.makedirs(os.path.join(self.img_dir,self.baseline_dir),exist_ok=True)
         self.ablation_dir = ablation_dir
-        os.makedirs(os.path.join(self.img_dir,self.ablation_dir),exist_ok=True)
         self.perf_dir = perf_dir
-        os.makedirs(os.path.join(self.img_dir,self.perf_dir),exist_ok=True)
         self.heuristic_dir = heuristic_dir
-        os.makedirs(os.path.join(self.img_dir,self.heuristic_dir),exist_ok=True)
-        
+        self.make_dirs()
+        self.construct_lang()
+
+    def construct_lang(self):
         if self.task == "image":
             self.lang: Lang = ImgLang()
         elif self.task == "music":
             self.lang: Lang = MusicLang()
         else:
             raise Exception(f"Invalid task: {self.task}")
+        
+    def make_dirs(self):
+        os.makedirs(os.path.join(self.out_dir,self.csv_dir),exist_ok=True)
+        os.makedirs(os.path.join(self.out_dir,self.baseline_csv_dir),exist_ok=True)
+        os.makedirs(os.path.join(self.out_dir,self.img_dir,self.pareto_dir),exist_ok=True)
+        os.makedirs(os.path.join(self.out_dir,self.img_dir,self.baseline_dir),exist_ok=True)
+        os.makedirs(os.path.join(self.out_dir,self.img_dir,self.ablation_dir),exist_ok=True)
+        os.makedirs(os.path.join(self.out_dir,self.img_dir,self.perf_dir),exist_ok=True)
+        os.makedirs(os.path.join(self.out_dir,self.img_dir,self.heuristic_dir),exist_ok=True)
 
     def run_once(self, params_dict: dict, prog_fname=None):
         config = RunConfig(
@@ -337,7 +350,6 @@ class App:
             ground_vals = merged_df["val_ground"].tolist()
 
             _, _, f1 = compute_metrics_baseline(list(zip(ground_vals, pred_vals)))
-            #print(k[0])
             f1_scores.append([k[0], f1])
         return pd.DataFrame(data=f1_scores, columns=["num_examples", "f1"])
 
@@ -345,15 +357,18 @@ class App:
         all_examples = pd.read_csv(self.examples_csv_fname)
         all_example_fnames = list(all_examples[all_examples["val"] == True]["fname"])
         # Iterate through parameter combinations
-        for params_dict in self.param_iter_noex(self.baseline_params):
+        for params_dict in self.synth_param_iter(self.baseline_params,"low","high","mi","pool","depth","bins"):
             ind_results = []
-            print(params_dict)
+            if self.debug_value:
+                print(params_dict)
             for run_no in range(self.pp_params["num_samples"]):
-                print("Run: ", run_no)
+                if self.debug_value:
+                    print("Run: ", run_no)
                 for num_rounds, predicates_per_round in self.synth_num_pred_iter(
                     self.baseline_params
                 ):
-                    print("Predicates: ", num_rounds * predicates_per_round)
+                    if self.debug_value:
+                        print("Predicates: ", num_rounds * predicates_per_round)
                     params_dict["num_rounds"] = num_rounds
                     params_dict["preds_per_round"] = predicates_per_round
                     for num_examples in self.baseline_params["examples"]:
@@ -391,20 +406,21 @@ class App:
             df = pd.DataFrame(columns=self.ind_csv_header, data=ind_results)
             param_str = self.param_str_noex(params_dict)
             ind_csv_filename = f"{param_str}_results.csv"
-            df.to_csv(f"{self.baseline_csv_dir}/{ind_csv_filename}")
+            df.to_csv(os.path.join(self.out_dir,self.baseline_csv_dir,ind_csv_filename))
 
     def extract_baseline_exp_examples(self):
         all_results = {}
-        for params_dict in self.param_iter_noex(self.baseline_params):
+        for params_dict in self.synth_param_iter(self.baseline_params,"low","high","bins","depth","pool","mi"):
             params_results = {}
             param_str = self.param_str_noex(params_dict)
             ind_csv_filename = f"{param_str}_results.csv"
-            fname = f"{self.baseline_csv_dir}/{ind_csv_filename}"
+            fname = os.path.join(self.out_dir,self.baseline_csv_dir,ind_csv_filename)
             results = pd.read_csv(fname)
             for num_rounds, preds_per_round in self.synth_num_pred_iter(
                 self.baseline_params
             ):
-                #print(params_dict)
+                if self.debug_value:
+                    print(params_dict)
                 preds_results: pd.DataFrame = results[
                     (results["predicates_per_round"] == preds_per_round)
                     & (results["num_feature_selection_rounds"] == num_rounds)
@@ -432,16 +448,17 @@ class App:
 
     def extract_ablation_results(self):
         all_results = {}
-        for params_dict in self.param_iter_noex(self.ablation_params):
+        for params_dict in self.synth_param_iter(self.ablation_params,"low","high","bins","mi","pool","depth"):
             params_results = {}
             param_str = self.param_str_noex(params_dict)
             ind_csv_filename = f"{param_str}_ablation_results.csv"
-            fname = f"{self.csv_dir}/{ind_csv_filename}"
+            fname = os.path.join(self.out_dir,self.csv_dir,ind_csv_filename)
             results = pd.read_csv(fname)
             for num_rounds, preds_per_round in self.synth_num_pred_iter(
                 self.ablation_params
             ):
-                print(params_dict)
+                if self.debug_value:
+                    print(params_dict)
                 preds_results: pd.DataFrame = results[
                     (results["predicates_per_round"] == preds_per_round)
                     & (results["num_feature_selection_rounds"] == num_rounds)
@@ -469,16 +486,17 @@ class App:
 
     def extract_heuristic_results(self):
         all_results = {}
-        for params_dict in self.param_iter_noex(self.heuristic_params):
+        for params_dict in self.synth_param_iter(self.heuristic_params,"low","high","bins","mi","pool","depth"):
             params_results = {}
             param_str = self.param_str_noex(params_dict)
             ind_csv_filename = f"{param_str}_heuristic_results.csv"
-            fname = f"{self.csv_dir}/{ind_csv_filename}"
+            fname = os.path.join(self.out_dir,self.csv_dir,ind_csv_filename)
             results = pd.read_csv(fname)
             freq_results = results[results["heuristic"] == "freq"]
             rand_results = results[results["heuristic"] == "rand"]
             for k in self.heuristic_params["examples"]:
-                print(params_dict)
+                if self.debug_value:
+                    print(params_dict)
                 preds_results: pd.DataFrame = freq_results[
                     (freq_results["num_examples"] == k)
                 ]
@@ -556,34 +574,57 @@ class App:
     def ind_csv_fname(self, params_dict, dir):
         param_str = self.param_str_top_level(params_dict)
         ind_csv_filename = f"{param_str}_results.csv"
-        return f"{dir}/{ind_csv_filename}"
+        return os.path.join(dir,ind_csv_filename)
 
-    def synth_param_iter(self, params):
-        for param_dict in self.param_iter_noex(params):
-            for num_examples in params["examples"]:
-                param_dict = copy.copy(param_dict)
-                param_dict["num_examples"] = num_examples
-                yield param_dict
-
-    def param_iter_noex(self, params):
-        parameter_combinations = itertools.product(
-            params["low"],
-            params["high"],
-            params["bins"],
-            params["depth"],
-            params["mi"],
-            params["pool"],
-        )
-        for params in parameter_combinations:
-            params_dict = {
-                "low": params[0],
-                "high": params[1],
-                "use_bins": params[2],
-                "depth": params[3],
-                "use_mi": params[4],
-                "mi_pool": params[5],
-            }
-            yield params_dict
+    def synth_param_iter(self, all_params, *params):
+        index_to_dict = {}
+        params_to_iterate = []
+        curr_index = 0
+        if "low" in params:
+            params_to_iterate.append(all_params["low"])
+            index_to_dict["low"] = curr_index
+            curr_index += 1
+        if "high" in params:
+            params_to_iterate.append(all_params["high"])
+            index_to_dict["high"] = curr_index
+            curr_index += 1
+        if "bins" in params:
+            params_to_iterate.append(all_params["bins"])
+            index_to_dict["bins"] = curr_index
+            curr_index += 1
+        if "depth" in params:
+            params_to_iterate.append(all_params["depth"])
+            index_to_dict["depth"] = curr_index
+            curr_index += 1
+        if "pool" in params:
+            params_to_iterate.append(all_params["pool"])
+            index_to_dict["pool"] = curr_index
+            curr_index += 1
+        if "mi" in params:
+            params_to_iterate.append(all_params["mi"])
+            index_to_dict["mi"] = curr_index
+            curr_index += 1
+        if "examples" in params:
+            params_to_iterate.append(all_params["examples"])
+            index_to_dict["examples"] = curr_index
+            curr_index += 1
+        for param_tuple in itertools.product(*params_to_iterate):
+            param_dict = {}
+            if "low" in params:
+                param_dict["low"] = param_tuple[index_to_dict["low"]]
+            if "high" in params:
+                param_dict["high"] = param_tuple[index_to_dict["high"]]
+            if "bins" in params:
+                param_dict["use_bins"] = param_tuple[index_to_dict["bins"]]
+            if "depth" in params:
+                param_dict["depth"] = param_tuple[index_to_dict["depth"]]
+            if "mi" in params:
+                param_dict["use_mi"] = param_tuple[index_to_dict["mi"]]
+            if "pool" in params:
+                param_dict["mi_pool"] = param_tuple[index_to_dict["pool"]]
+            if "examples" in params:
+                param_dict["num_examples"] = param_tuple[index_to_dict["examples"]]
+            yield param_dict
 
     def synth_num_pred_iter(self, params):
         pred_size_combinations = list(
@@ -596,22 +637,26 @@ class App:
         all_examples = pd.read_csv(self.examples_csv_fname)
         all_example_fnames = list(all_examples[all_examples["val"] == True]["fname"])
         full_results = []
-        print(self.highk_params)
+        if self.debug_value:
+            print(self.pareto_params)
         # Iterate through parameter combinations
-        for params_dict in self.synth_param_iter(self.highk_params):
+        for params_dict in self.synth_param_iter(self.pareto_params,"low","high","bins","mi","pool","depth","examples"):
             ind_results = []
-            print(params_dict)
+            if self.debug_value:
+                print(params_dict)
             for run_no in range(self.pp_params["num_samples"]):
-                print("Run: ", run_no)
+                if self.debug_value:
+                    print("Run: ", run_no)
                 user_examples = set(
                     random.choices(all_example_fnames, k=params_dict["num_examples"])
                 )
                 params_dict["examples"] = user_examples
                 params_dict["run_no"] = run_no
                 for num_rounds, predicates_per_round in self.synth_num_pred_iter(
-                    self.highk_params
+                    self.pareto_params
                 ):
-                    print("Predicates: ", num_rounds * predicates_per_round)
+                    if self.debug_value:
+                        print("Predicates: ", num_rounds * predicates_per_round)
                     params_dict["num_rounds"] = num_rounds
                     params_dict["preds_per_round"] = predicates_per_round
                     results, prog = self.run_once(params_dict)
@@ -667,26 +712,27 @@ class App:
                     if f1_above_thresh:
                         break
             df = pd.DataFrame(columns=self.ind_csv_header, data=ind_results)
-            df.to_csv(
-                f"{self.csv_dir}/highk_{self.param_str_top_level(params_dict)}_results.csv"
-            )
+            df.to_csv(os.path.join(self.out_dir,self.csv_dir,f"pareto_{self.param_str_top_level(params_dict)}_results.csv"))
         df = pd.DataFrame(columns=self.full_csv_header, data=full_results)
-        df.to_csv(f"{self.csv_dir}/highk_{self.full_out_csv_filename}")
-        print(f"Results written to {self.csv_dir}/highk_{self.full_out_csv_filename}")
+        df.to_csv(os.path.join(self.out_dir,self.csv_dir,f"pareto_{self.full_out_csv_filename}"))
+        print(f"Results written to {os.path.join(self.out_dir,self.csv_dir,f'pareto_{self.full_out_csv_filename}')}")
 
     def compute_ablation(self):
         all_examples = pd.read_csv(self.examples_csv_fname)
         all_example_fnames = list(all_examples[all_examples["val"] == True]["fname"])
         # Iterate through parameter combinations
-        for params_dict in self.param_iter_noex(self.ablation_params):
+        for params_dict in self.synth_param_iter(self.ablation_params,"low","high","mi","bins","depth","pool"):
             ind_results = []
-            print(params_dict)
+            if self.debug_value:
+                print(params_dict)
             for run_no in range(self.pp_params["num_samples"]):
-                print("Run: ", run_no)
+                if self.debug_value:
+                    print("Run: ", run_no)
                 for num_rounds, predicates_per_round in self.synth_num_pred_iter(
                     self.ablation_params
                 ):
-                    print("Predicates: ", num_rounds * predicates_per_round)
+                    if self.debug_value:
+                        print("Predicates: ", num_rounds * predicates_per_round)
                     params_dict["num_rounds"] = num_rounds
                     params_dict["preds_per_round"] = predicates_per_round
                     for num_examples in self.ablation_params["examples"]:
@@ -724,7 +770,7 @@ class App:
             df = pd.DataFrame(columns=self.ind_csv_header, data=ind_results)
             param_str = self.param_str_noex(params_dict)
             ind_csv_filename = f"{param_str}_ablation_results.csv"
-            df.to_csv(f"{self.csv_dir}/{ind_csv_filename}")
+            df.to_csv(os.path.join(self.out_dir,self.csv_dir,ind_csv_filename))
 
     def gen_synth_progs(self, depth=1):
         docs = {}
@@ -749,45 +795,48 @@ class App:
         all_examples = pd.read_csv(self.examples_csv_fname)
         all_example_fnames = list(all_examples[all_examples["val"] == True]["fname"])
         synth_progs = self.gen_synth_progs()
-        print(len(synth_progs), len(synth_progs[0]))
         full_results = []
         # Iterate through parameter combinations
         for _ in range(2):
             full_results = []
-            with open("freq_heuristic.csv", "w") as f:
-                f.write("run_no,prog_len,time,used_bins\n")
-            for params_dict in self.synth_param_iter(self.perf_params):
+            # with open("freq_heuristic.csv", "w") as f:
+            #     f.write("run_no,prog_len,time,used_bins\n")
+            for params_dict in self.synth_param_iter(self.perf_params,"low","high","bins","mi","pool","depth","examples"):
                 params_dict["use_not"] = False
                 user_examples = set(
                     random.choices(all_example_fnames, k=params_dict["num_examples"])
                 )
                 params_dict["examples"] = user_examples
-                print(params_dict)
-                for prog_length in self.perf_params["prog_size"]:
-                    print("Program length: ", prog_length)
+                if self.debug_value:
+                    print(params_dict)
+                for i, prog_length in enumerate(self.perf_params["prog_size"]):
+                    if self.debug_value:
+                        print("Program length: ", prog_length)
                     for num_rounds, predicates_per_round in self.synth_num_pred_iter(
                         self.perf_params
                     ):
-                        print("Predicates: ", num_rounds * predicates_per_round)
+                        if self.debug_value:
+                            print("Predicates: ", num_rounds * predicates_per_round)
                         params_dict["num_rounds"] = num_rounds
                         params_dict["preds_per_round"] = predicates_per_round
                         for run_no in range(self.pp_params["num_samples"]):
-                            print("Run: ", run_no)
-                            synth_prog = synth_progs[prog_length][run_no]
+                            if self.debug_value:
+                                print("Run: ", run_no)
+                            synth_prog = synth_progs[i][run_no]
                             with open("prog_exp.txt", "w") as f:
                                 f.write("\n".join([str(pred) for pred in synth_prog]))
 
                             params_dict["run_no"] = run_no
                             start = time.perf_counter_ns()
 
-                            _, prog, final_round = self.run_once(
+                            prog, final_round = self.run_once(
                                 params_dict, prog_fname="prog_exp.txt"
                             )
                             success = prog_length == len(prog)
-                            print(success)
                             end = time.perf_counter_ns()
                             delta = (end - start) / 1000000000
-                            print("Total time: ", delta)
+                            if self.debug_value:
+                                print("Total time: ", delta)
                             full_results.append(
                                 [
                                     params_dict["low"],
@@ -807,24 +856,28 @@ class App:
                             )
                 df = pd.DataFrame(columns=self.perf_csv_header, data=full_results)
                 ind_csv_filename = "perf_results.csv"
-                df.to_csv(f"{self.csv_dir}/{ind_csv_filename}")
+                df.to_csv(os.path.join(self.out_dir,self.csv_dir,ind_csv_filename))
 
     def compute_heuristics(self):
         all_examples = pd.read_csv(self.examples_csv_fname)
         all_example_fnames = list(all_examples[all_examples["val"] == True]["fname"])
         # Iterate through parameter combinations
-        for params_dict in self.param_iter_noex(self.heuristic_params):
+        for params_dict in self.synth_param_iter(self.heuristic_params,"low","high","bins","mi","pool","depth"):
             ind_results = []
-            print(params_dict)
+            if self.debug_value:
+                print(params_dict)
             for heuristic in self.heuristic_params["heuristics"]:
-                print("heuristic: ", heuristic)
+                if self.debug_value:
+                    print("heuristic: ", heuristic)
                 params_dict["heuristic"] = heuristic
                 for run_no in range(self.pp_params["num_samples"]):
-                    print("Run: ", run_no)
+                    if self.debug_value:
+                        print("Run: ", run_no)
                     for num_rounds, predicates_per_round in self.synth_num_pred_iter(
                         self.heuristic_params
                     ):
-                        print("Predicates: ", num_rounds * predicates_per_round)
+                        if self.debug_value:
+                            print("Predicates: ", num_rounds * predicates_per_round)
                         params_dict["num_rounds"] = num_rounds
                         params_dict["preds_per_round"] = predicates_per_round
                         if heuristic == "freq":
@@ -897,7 +950,7 @@ class App:
                 )
                 param_str = self.param_str_noex(params_dict)
             ind_csv_filename = f"{param_str}_heuristic_results.csv"
-            df.to_csv(f"{self.csv_dir}/{ind_csv_filename}")
+            df.to_csv(os.path.join(self.out_dir,self.csv_dir,ind_csv_filename))
 
     def parse_prog(self, fname):
         with open(fname, "r") as f:
@@ -923,6 +976,7 @@ class App:
             return
         terms = cmd.split(" ")
         head = terms[0]
+        print(cmd)
         match head:
             case "q":
                 raise REPLQuitException()
@@ -957,8 +1011,6 @@ class App:
                     params = self.baseline_params
                 case "pareto":
                     params = self.pareto_params
-                case "highk":
-                    params = self.highk_params
                 case "ablation":
                     params = self.ablation_params
                 case "perf":
@@ -972,6 +1024,9 @@ class App:
             if param not in params:
                 raise REPLParseError("Invalid parameter: ", param)
             params[param] = eval(expr)
+            if ctx == "task" and param == "task":
+                self.construct_lang()
+            self.make_dirs()
 
     def parse_compute(self, terms):
         match terms[0]:
@@ -1034,7 +1089,7 @@ class App:
         baseline_k = predicted_labels[
             predicted_labels["k"] == self.baseline_params["baseline_k"]
         ]
-        for params_dict in self.param_iter_noex(params):
+        for params_dict in self.synth_param_iter(params,"low","high","bins","mi","pool","depth"):
             for num_rounds, preds_per_round in self.synth_num_pred_iter(params):
                 for k in params["k_vals"]:
                     params_dict["num_examples"] = k
@@ -1074,12 +1129,12 @@ class App:
                     print(diff)
 
     def plot_pareto(self):
-        full_results = pd.read_csv(f"{self.csv_dir}/highk_{self.full_out_csv_filename}")
+        full_results = pd.read_csv(os.path.join(self.out_dir,self.csv_dir,f"pareto_{self.full_out_csv_filename}"))
         full_results["num_preds"] = (
             full_results["num_feature_selection_rounds"]
             * full_results["predicates_per_round"]
         )
-        for param_dict in self.param_iter_noex(self.highk_params):
+        for param_dict in self.synth_param_iter(self.pareto_params,"low","high","bins","mi","pool","depth"):
             param_results = full_results[
                 (full_results["low_threshold"] == param_dict["low"])
                 & (full_results["high_threshold"] == param_dict["high"])
@@ -1090,7 +1145,7 @@ class App:
             ]
             param_dict["f1_thresh"] = self.pp_params["f1_thresh"]
             param_str = self.param_str_noex(param_dict)
-            param_str = f"{self.img_dir}/{self.highk_dir}/{param_str}_{self.pp_params['f1_thresh']}_{self.pp_params['num_samples']}"
+            param_str = f"{os.path.join(self.out_dir,self.img_dir,self.pareto_dir,param_str)}_{self.pp_params['f1_thresh']}_{self.pp_params['num_samples']}"
             create_pareto_plot(
                 param_results,
                 param_dict,
@@ -1098,38 +1153,10 @@ class App:
                 self.pp_params["pareto_scatterplot"],
             )
 
-    def plot_hists(self):
-        for params_dict in self.synth_param_iter(self.synth_params):
-            data = pd.read_csv(self.ind_csv_fname(params_dict))
-            for num_rounds, preds_per_round in self.synth_num_pred_iter(
-                self.synth_params
-            ):
-                params_dict["num_rounds"] = num_rounds
-                params_dict["preds_per_round"] = preds_per_round
-                data_filtered = data[
-                    (data["num_feature_selection_rounds"] == num_rounds)
-                    & (data["predicates_per_round"] == preds_per_round)
-                ]
-                if self.debug_value:
-                    print(params_dict)
-                runs = data_filtered.groupby("run_number")
-                for run_no, run in runs:
-                    if run_no % 10 == 0 and self.debug_value:
-                        print(run_no)
-                    params_dict["run_no"] = run_no
-                    results = run.filter(
-                        ["expected_value", "predicates_correct"], axis=1
-                    )
-                    param_str = f"{self.img_dir}/{self.hist_dir}/histogram_{self.param_str_hist(params_dict)}.png"
-                    create_hist(
-                        results, params_dict, param_str, self.pp_params["hist_type"]
-                    )
-
     def plot_baseline(self):
         all_synth_scores = self.extract_baseline_exp_examples()
-        # print(all_synth_scores)
         baseline_scores = self.compute_baseline_scores()
-        for params_dict in self.param_iter_noex(self.baseline_params):
+        for params_dict in self.synth_param_iter(self.baseline_params,"low","high","bins","mi","pool","depth"):
             synth_scores = []
             param_str = self.param_str_noex(params_dict)
             synth_scores_params = all_synth_scores[param_str]
@@ -1141,7 +1168,6 @@ class App:
                 synth_scores_preds = np.array(
                     synth_scores_params[(num_rounds, preds_per_round)]
                 )
-                print(synth_scores_preds.shape)
                 synth_scores_means = np.mean(synth_scores_preds, axis=0)
                 synth_scores_stds = np.std(synth_scores_preds, axis=0)
                 for j in range(synth_scores_preds.shape[0]):
@@ -1156,21 +1182,21 @@ class App:
                             ]
                         )
             baseline_fname = (
-                f"{self.img_dir}/{self.baseline_dir}/{param_str}_baseline.pdf"
+                f"{os.path.join(self.out_dir,self.img_dir,self.baseline_dir,param_str)}_baseline.pdf"
             )
             synth_scores = pd.DataFrame(
                 data=synth_scores,
                 columns=["run_no","num_examples", "num_preds", "f1"],
             )
-            # synth_scores = pd.DataFrame(data=[],columns = ['num_examples','num_preds','f1_mean','f1_std'])
         make_baseline_plots(baseline_scores, synth_scores, params_dict, baseline_fname)
 
     def plot_ablation(self):
         all_synth_scores = self.extract_ablation_results()
         synth_scores = []
-        for params_dict in self.param_iter_noex(self.ablation_params):
+        for params_dict in self.synth_param_iter(self.ablation_params,"low","high","bins","mi","pool","depth"):
             param_str = self.param_str_noex(params_dict)
-            print(param_str)
+            if self.debug_value:
+                print(param_str)
             synth_scores_params = all_synth_scores[param_str]
             for num_rounds, preds_per_round in self.synth_num_pred_iter(
                 self.ablation_params
@@ -1196,7 +1222,7 @@ class App:
                                 f"{bins_str}, {mi_str}",
                             ]
                         )
-        ablation_fname = f"{self.img_dir}/{self.ablation_dir}/ablation.pdf"
+        ablation_fname = os.path.join(self.out_dir,self.img_dir,self.ablation_dir,"ablation.pdf")
         synth_scores = pd.DataFrame(
             data=synth_scores,
             columns=["num_examples", "num_preds", "f1", "label"],
@@ -1206,9 +1232,10 @@ class App:
     def plot_heuristics(self):
         all_synth_scores = self.extract_heuristic_results()
         synth_scores = []
-        for params_dict in self.param_iter_noex(self.heuristic_params):
+        for params_dict in self.synth_param_iter(self.heuristic_params,"low","high","bins","mi","pool","depth"):
             param_str = self.param_str_noex(params_dict)
-            print(param_str)
+            if self.debug_value:
+                print(param_str)
             synth_scores_params = all_synth_scores[param_str]
             for i, num_examples in enumerate(self.heuristic_params["examples"]):
                 params_dict["num_examples"] = num_examples
@@ -1242,7 +1269,7 @@ class App:
                             "Random",
                         ]
                     )
-        fname = f"{self.img_dir}/{self.heuristic_dir}/heuristic_ablation.pdf"
+        fname = os.path.join(self.out_dir,self.img_dir,self.heuristic_dir,"heuristic_ablation.pdf")
         synth_scores = pd.DataFrame(
             data=synth_scores,
             columns=["num_examples", "num_preds", "f1", "label"],
@@ -1251,8 +1278,8 @@ class App:
 
     def plot_performance(self):
         ind_csv_filename = "perf_results.csv"
-        out_fname = f"{self.img_dir}/{self.perf_dir}/performance.pdf"
-        results = pd.read_csv(f"{self.csv_dir}/{ind_csv_filename}")
+        out_fname = os.path.join(self.out_dir,self.img_dir,self.perf_dir,"performance.pdf")
+        results = pd.read_csv(os.path.join(self.out_dir,self.csv_dir,ind_csv_filename))
         make_performance_plot(results, out_fname)
 
 
@@ -1263,7 +1290,6 @@ if __name__ == "__main__":
     parser.add_argument("-f", "--fname", required=False)
     args = parser.parse_args()
     app = App(debug_value=False)
-    app = App()
     if not args.fname:
         app.run_repl()
     else:

@@ -308,7 +308,9 @@ class ImgLang(Lang):
             )
 
         def __hash__(self):
-            return hash(("And", self.pred1, self.pred2))
+            pred_hashes = [hash(self.pred1),hash(self.pred2)]
+            pred_hashes.sort()
+            return hash(("And", str(pred_hashes)))
 
     class OrPred(Pred):
         def __init__(self, pred1, pred2):
@@ -397,8 +399,11 @@ class ImgLang(Lang):
             + Suppress(")")
         )
         # multi_parser <<= Literal("Multi(") + Group(ZeroOrMore(pred_parser + Suppress(","))) + Literal(",") + Word(nums)
-
-        return pred_parser.parseString(input_str, parseAll=True)[0]
+        try:
+            return pred_parser.parseString(input_str, parseAll=True)[0]
+        except Exception as e:
+            print(input_str)
+            raise e
 
     def predGen(self, docs, features, depth):
         def genPredsLevel(depth):

@@ -1,13 +1,13 @@
-set task task music
-set task out_dir music
-set task features_fname jsons/bach_features.json
-set task examples_csv_fname labeled_music.csv
-set task full_out_csv_filename synth_results_full.csv
-set task baseline_labels_fname baseline/predicted_labels_gemini_music.csv
-set task prog_fname prog_music_hand_1.txt
+set task task "music"
+set task out_dir "music"
+set task features_fname "jsons/bach_features.json"
+set task examples_csv_fname "labeled_music.csv"
+set task full_out_csv_filename "synth_results_full.csv"
+set task baseline_labels_fname "baseline/predicted_labels_gemini_music.csv"
+set task prog_fname "prog_music_hand_1.txt"
 set baseline num_rounds [2,5,10,15]
 set baseline preds_per_round [10]
 set baseline examples ([1]+list(range(5,25,5)))
-set pp num_samples 300
+set pp num_samples 1
 compute baseline
 plot baseline
