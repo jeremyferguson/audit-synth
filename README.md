@@ -8,4 +8,4 @@ DExScore requires Python to run. Additionally, to manually run the music task, [
 To run DExScore manually, use the scripts `manual_sports.sh` and `manual_music.sh` to run the sports and music tasks, respectively. `manual_music.sh` will error if Pygame is not installed.
 
 ## Evaluations
-To reproduce the evaluations described in our paper, run `eval_all.sh`. This will take several hours to run, so be warned. To reproduce all the plots but with a smaller sample size, run `eval_small.sh`
+To reproduce the evaluations described in our paper, run `eval_all.sh`. This will take several hours to run. To reproduce all the plots but with a smaller sample size, run `eval_small.sh`
